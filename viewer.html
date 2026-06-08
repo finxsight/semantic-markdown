@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMD Viewer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+       background: #f0f2f5; color: #1a1a2e; height: 100vh; overflow: hidden; }
+
+.app { display: flex; height: 100vh; }
+
+/* ---- SIDEBAR ---- */
+.sidebar { width: 290px; background: #1a1a2e; color: white; display: flex;
+           flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.sidebar-header { padding: 20px 18px; border-bottom: 1px solid #2a2a44; }
+.sidebar-header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.sidebar-header .ver { font-size: 11px; color: #666; margin-top: 2px; }
+
+.templates-section { padding: 16px 18px; border-bottom: 1px solid #2a2a44; }
+.templates-section h3 { font-size: 11px; text-transform: uppercase; color: #777;
+    letter-spacing: 1.5px; margin-bottom: 10px; }
+.template-btn { display: block; width: 100%; padding: 10px 12px; margin-bottom: 6px;
+    background: #252540; border: 1px solid #333; border-radius: 6px; color: #ccc;
+    cursor: pointer; text-align: left; font-size: 13px; transition: all 0.2s; }
+.template-btn:hover { background: #2d2d50; border-color: #555; color: white; }
+.template-btn.active { background: #4a6cf7; border-color: #4a6cf7; color: white;
+    font-weight: 600; }
+.template-btn .icon { margin-right: 6px; }
+
+.import-section { padding: 16px 18px; border-bottom: 1px solid #2a2a44; }
+.import-section h3 { font-size: 11px; text-transform: uppercase; color: #777;
+    letter-spacing: 1.5px; margin-bottom: 10px; }
+.import-section textarea { width: 100%; height: 80px; background: #12121f; border: 1px solid #333;
+    border-radius: 6px; color: #aaa; padding: 8px; font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace; resize: vertical; }
+.import-section button { margin-top: 8px; width: 100%; padding: 8px; background: #4a6cf7;
+    border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 12px;
+    font-weight: 600; }
+
+.filter-section { padding: 14px 18px; }
+.filter-section h3 { font-size: 11px; text-transform: uppercase; color: #777;
+    letter-spacing: 1.5px; margin-bottom: 10px; }
+.filter-chip { display: inline-block; padding: 4px 10px; margin: 3px 4px 3px 0;
+    background: #2a2a3f; border-radius: 12px; font-size: 11px; cursor: pointer;
+    transition: all 0.2s; user-select: none; color: #bbb; }
+.filter-chip:hover { background: #3a3a55; }
+.filter-chip input { display: none; }
+.filter-chip:has(input:checked) { background: #4a6cf7; color: white; }
+.filter-group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: #777; margin: 10px 0 4px 0; }
+.clear-btn { padding: 5px 12px; background: transparent; border: 1px solid #555;
+    border-radius: 6px; color: #999; cursor: pointer; font-size: 11px; margin-top: 6px; }
+.clear-btn:hover { background: #2a2a3f; }
+
+/* ---- VIEW TOGGLE ---- */
+.view-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; flex-shrink: 0; }
+.view-toggle-btn { padding: 7px 16px; border: none; background: #fff; color: #555; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+.view-toggle-btn + .view-toggle-btn { border-left: 1px solid #ddd; }
+.view-toggle-btn:hover { background: #f0f2f5; }
+.view-toggle-btn.active { background: #4a6cf7; color: white; }
+
+/* ---- MAIN ---- */
+.main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+.main-header { margin-bottom: 20px; }
+.main-header h2 { font-size: 22px; font-weight: 700; }
+.main-header .meta-line { color: #777; font-size: 12px; margin-top: 4px; }
+.active-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+    min-height: 0; }
+.active-filter { padding: 4px 12px; background: #4a6cf7; color: white;
+    border-radius: 10px; font-size: 11px; cursor: pointer; }
+.active-filter:hover { background: #3451c4; }
+
+/* ---- BLOCK CARDS ---- */
+.smd-block { background: white; border-radius: 10px; margin-bottom: 18px;
+    border: 1px solid #e2e4e8; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: opacity 0.2s; }
+.smd-block.hidden { display: none; }
+@keyframes pulse-highlight {
+  0% { box-shadow: 0 0 0 0 rgba(74,108,247,0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(74,108,247,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,108,247,0); }
+}
+.smd-block.pulse { animation: pulse-highlight 1.2s ease-out; }
+.smd-block-header { display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; background: #fafbfc; border-bottom: 1px solid #eee; }
+.sentiment-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(0,0,0,0.1); }
+.block-id { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    font-weight: 600; color: #4a6cf7; }
+.speaker { font-size: 13px; color: #444; font-weight: 500; }
+.type-badge { font-size: 10px; padding: 3px 10px; background: #e8ecf2;
+    border-radius: 8px; color: #555; text-transform: uppercase; margin-left: auto;
+    font-weight: 600; letter-spacing: 0.5px; }
+.tags-row { padding: 8px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-badge { padding: 3px 10px; background: #eef1ff; border-radius: 10px;
+    font-size: 11px; color: #4a6cf7; cursor: pointer; font-weight: 500;
+    transition: background 0.15s; }
+.tag-badge:hover { background: #dce0ff; }
+.summary-box { padding: 10px 16px; font-size: 13px; color: #555;
+    background: linear-gradient(135deg, #fefdf8, #fdfcee); border-bottom: 1px solid #f0edc0;
+    font-style: italic; line-height: 1.5; }
+.highlights-box { padding: 10px 16px; }
+.highlight-item { padding: 7px 12px; margin: 5px 0; background: #f8f9fb;
+    border-radius: 6px; font-size: 13px; display: flex; align-items: center;
+    gap: 8px; line-height: 1.4; }
+.highlight-bar { width: 4px; height: 24px; border-radius: 2px; flex-shrink: 0; }
+.body-text { padding: 16px; font-size: 14px; line-height: 1.75; color: #333; }
+.body-text p { margin-bottom: 10px; }
+mark.inline-highlight { border-radius: 3px; padding: 1px 3px;
+  color: inherit; background-color: transparent; }
+mark.inline-highlight:hover { filter: brightness(0.92); }
+.takeaways-box { padding: 12px 16px; background: #f2faf5; border-top: 1px solid #d4edd9; }
+.takeaways-box strong { font-size: 11px; text-transform: uppercase; color: #2e7d32;
+    letter-spacing: 1px; display: block; margin-bottom: 6px; }
+.takeaway { padding: 3px 0 3px 10px; font-size: 13px; color: #2e7d32; }
+.segment { padding: 10px 16px; font-size: 13px; border-top: 1px solid #eee; }
+.segment-label { font-size: 10px; text-transform: uppercase; color: #999;
+    letter-spacing: 1.5px; margin-bottom: 4px; display: block; }
+.segment pre { white-space: pre-wrap; font-family: inherit; color: #555; margin: 0; }
+.segment-thought { background: #fcf9ff; border-left: 3px solid #b088d0; }
+.segment-action_item { background: #fffaf5; border-left: 3px solid #f0a040; }
+
+.empty-state { text-align: center; padding: 80px 20px; color: #aaa; }
+.empty-state .big-icon { font-size: 48px; margin-bottom: 16px; }
+.no-results { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; max-height: 300px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>⬡ SMD Viewer</h1>
+      <div class="ver">Semantic Markdown v0.2</div>
+    </div>
+
+    <div class="templates-section">
+      <h3>Examples</h3>
+      <button class="template-btn active" onclick="loadPath('examples/Agilent_Transcript_1Q_2026.smd')">
+        <span class="icon">📊</span> Agilent Q1 FY26 Transcript
+      </button>
+      <button class="template-btn" onclick="loadPath('examples/notebook.smd')">
+        <span class="icon">📓</span> Research Notebook
+      </button>
+    </div>
+
+    <div class="import-section">
+      <h3>Load SMD File</h3>
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <input type="file" id="file-input" accept=".smd,.md,.txt" style="display:none;" onchange="loadFile(event)">
+        <button onclick="document.getElementById('file-input').click()" style="flex:1;padding:8px;background:#2d2d50;border:1px solid #444;border-radius:6px;color:#ccc;cursor:pointer;font-size:12px;">
+          📂 Choose File
+        </button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="path-input" placeholder="examples/transcript.smd" style="flex:1;background:#12121f;border:1px solid #333;border-radius:6px;color:#aaa;padding:8px;font-size:12px;">
+        <button onclick="loadPath()" style="padding:8px 14px;background:#4a6cf7;border:none;border-radius:6px;color:white;cursor:pointer;font-size:12px;font-weight:600;">Load</button>
+      </div>
+    </div>
+
+    <div class="import-section">
+      <h3>Paste SMD Content</h3>
+      <textarea id="paste-input" placeholder="Paste @document or @block SMD content here..."></textarea>
+      <button onclick="loadPasted()">Render</button>
+    </div>
+
+    <div class="filter-section">
+      <h3>Filter by Tag</h3>
+      <div id="tag-filters"></div>
+      <button class="clear-btn" onclick="clearFilters()">✕ Clear Filters</button>
+    </div>
+  </aside>
+
+  <!-- ====== MAIN CONTENT ====== -->
+  <main class="main" id="main-content">
+    <div class="main-header">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="flex:1;">
+          <h2 id="doc-title">Loading...</h2>
+          <div class="meta-line" id="doc-meta"></div>
+        </div>
+        <div class="view-toggle" id="view-toggle-group">
+          <button class="view-toggle-btn active" data-view="smd" id="btn-view-smd">📄 SMD</button>
+          <button class="view-toggle-btn" data-view="raw" id="btn-view-raw">📝 Raw</button>
+        </div>
+      </div>
+    </div>
+    <div class="active-filters" id="active-filters"></div>
+    <div id="blocks-container"></div>
+    <pre id="raw-view" style="display:none;background:#1a1a2e;color:#ccc;padding:24px;border-radius:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-x:auto;font-family:'SF Mono','Fira Code',monospace;"></pre>
+  </main>
+</div>
+
+<!-- ====== SMD PARSER (JS) ====== -->
+<script>
+// ---- Fuzzy text matching (client-side rapidfuzz) ----
+function levDist(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n; if (n === 0) return m;
+  let prev = new Uint16Array(n + 1), cur = new Uint16Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      cur[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j], cur[j-1], prev[j-1]);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+
+function fuzzRatio(a, b) {
+  const d = levDist(a.toLowerCase(), b.toLowerCase());
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? 100 : (1 - d / maxLen) * 100;
+}
+
+function findBestSpan(body, query) {
+  const qlen = query.length, blen = body.length;
+  if (qlen === 0 || blen === 0) return { start_char: 0, end_char: 0, score: 0 };
+
+  // Quick exact/contains check first
+  const lowerBody = body.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const exactIdx = lowerBody.indexOf(lowerQuery);
+  if (exactIdx !== -1) {
+    return { start_char: exactIdx, end_char: exactIdx + qlen, score: 1.0 };
+  }
+
+  const margin = 0.3;
+  const minWin = Math.max(5, Math.floor(qlen * (1 - margin)));
+  const maxWin = Math.min(blen, Math.ceil(qlen * (1 + margin)));
+  const winStep = Math.max(1, Math.floor((maxWin - minWin) / 8));
+
+  let bestScore = 0, bestStart = 0, bestEnd = 0;
+
+  for (let ws = minWin; ws <= maxWin; ws += winStep) {
+    const step = Math.max(1, Math.floor(ws / 3));
+    for (let start = 0; start + ws <= blen; start += step) {
+      const window = body.slice(start, start + ws);
+      const score = fuzzRatio(query, window);
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = start;
+        bestEnd = start + ws;
+      }
+    }
+  }
+
+  return { start_char: bestStart, end_char: bestEnd, score: bestScore / 100 };
+}
+
+// Annotate highlights with character positions (mutates header in-place)
+function annotateBlockHighlights(block, threshold = 0.55) {
+  const bodyText = block.body_text;
+  if (!bodyText) return;
+
+  const enr = block.header.enrichment || block.header.enrichments;
+  if (!enr) return;
+
+  const items = Array.isArray(enr) ? enr : [enr];
+  for (const item of items) {
+    if (!item || !Array.isArray(item.highlights)) continue;
+    for (const hl of item.highlights) {
+      if (!hl || typeof hl.text !== 'string') continue;
+      const span = findBestSpan(bodyText, hl.text);
+      if (span.score >= threshold) {
+        hl.start_char = span.start_char;
+        hl.end_char = span.end_char;
+        hl.match_score = Math.round(span.score * 1000) / 1000;
+      }
+    }
+  }
+}
+
+// ---- Minimal SMD Parser in JS ----
+function parseSMD(text) {
+  const entityStart = /^(?=@(?:document|block))/m;
+  const separator = /\n---\n/;
+  const fencedBlock = /```(\w*)\n([\s\S]*?)```/g;
+
+  const rawEntities = text.split(entityStart).filter(s => s.trim());
+  const blocks = [];
+  let docHeader = null;
+
+  for (const raw of rawEntities) {
+    const isDoc = raw.trimStart().startsWith('@document');
+    const isBlock = raw.trimStart().startsWith('@block');
+    if (!isDoc && !isBlock) continue;
+
+    const sepMatch = separator.exec(raw);
+    if (!sepMatch) continue;
+
+    const firstNewline = raw.indexOf('\n');
+    let headerText = raw.substring(firstNewline, sepMatch.index).trim();
+    let header;
+    try { header = JSON.parse(headerText); }
+    catch(e) { continue; }
+
+    const bodyText = raw.substring(sepMatch.index + sepMatch[0].length).trim();
+
+    if (isDoc) {
+      docHeader = header;
+    } else {
+      // Parse body segments
+      const segments = [];
+      let lastEnd = 0;
+      let match;
+      while ((match = fencedBlock.exec(bodyText)) !== null) {
+        if (match.index > lastEnd) {
+          const text = bodyText.substring(lastEnd, match.index).trim();
+          if (text) segments.push({ type: 'markdown', content: text });
+        }
+        segments.push({ type: match[1] || 'unknown', content: match[2] });
+        lastEnd = match.index + match[0].length;
+      }
+      if (lastEnd < bodyText.length) {
+        const text = bodyText.substring(lastEnd).trim();
+        if (text) segments.push({ type: 'markdown', content: text });
+      }
+
+      blocks.push({
+        block_id: header.block_id || '',
+        header,
+        raw_header: headerText,
+        body_text: bodyText,
+        segments,
+        get tags() { return this.header.tags || []; },
+        get type() { return this.header.type || this.header.block_type; },
+        get sentiment() {
+          const s = this.header.sentiment;
+          if (s === undefined || s === null) return null;
+          if (typeof s === 'number') return [{ excerpt: 'block-level', score: s }];
+          if (Array.isArray(s)) return s;
+          return null;
+        },
+        get highlights() {
+          const enr = this.header.enrichment || this.header.enrichments;
+          if (!enr) return [];
+          // enrichments can be an object {highlights:[...]} or an array [{highlights:[...]}, ...]
+          const items = Array.isArray(enr) ? enr : [enr];
+          const raw = [];
+          for (const item of items) {
+            if (item && Array.isArray(item.highlights)) {
+              for (const h of item.highlights) {
+                const obj = typeof h === 'string' ? { text: h } : { ...h };
+                if (item.topic) obj.topic = item.topic;
+                raw.push(obj);
+              }
+            }
+          }
+          return raw;
+        },
+        get enrichment() {
+          return this.header.enrichment || this.header.enrichments || {};
+        },
+        get key_takeaways() {
+          const enr = this.header.enrichment || this.header.enrichments;
+          if (!enr) return [];
+          const items = Array.isArray(enr) ? enr : [enr];
+          const results = [];
+          for (const item of items) {
+            if (item.key_takeaways) results.push(...item.key_takeaways);
+            if (item.key_takeaway) results.push(item.key_takeaway);
+          }
+          return results;
+        }
+      });
+      annotateBlockHighlights(blocks[blocks.length - 1]);
+    }
+  }
+
+  return { docHeader, blocks };
+}
+
+// ---- Sentiment color ----
+function hexToRgba(hex, opacity) {
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  const r = parseInt(hex.substring(0,2), 16);
+  const g = parseInt(hex.substring(2,4), 16);
+  const b = parseInt(hex.substring(4,6), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+function sentimentColor(score) {
+  // Handle [-1, 1] range: negative→red, zero→neutral, positive→green
+  const s = Math.max(-1, Math.min(1, score));
+  if (s < 0) {
+    const t = Math.abs(s); // 0 to 1 for negative
+    return `rgb(${Math.round(220 - t*60)},${Math.round(80 - t*30)},${Math.round(50 + t*20)})`;
+  } else if (s === 0) {
+    return 'rgb(180,180,180)';
+  } else {
+    const t = s; // 0 to 1 for positive
+    return `rgb(${Math.round(80 - t*30)},${Math.round(180 + t*40)},${Math.round(50 + t*30)})`;
+  }
+}
+
+function sentimentBg(score) {
+  const s = Math.max(-1, Math.min(1, score));
+  if (s < 0) {
+    const t = Math.abs(s);
+    return `rgba(255,${Math.round(220 - t*40)},${Math.round(220 - t*40)},0.15)`;
+  } else if (s === 0) {
+    return 'rgba(240,240,240,0.10)';
+  } else {
+    const t = s;
+    return `rgba(${Math.round(220 - t*40)},255,${Math.round(220 - t*40)},0.15)`;
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;');
+}
+
+// ---- Unified tree flattening ----
+// Recursively flatten an object/array into leaf entries:
+// {path: "enrichments.0.topic", value: "Faster growth", parent: <the direct container>}
+function flattenTree(root, prefix) {
+  const leaves = [];
+  if (root == null) return leaves;
+  if (Array.isArray(root)) {
+    for (let i = 0; i < root.length; i++) {
+      for (const leaf of flattenTree(root[i], prefix + '.' + i)) {
+        leaves.push(leaf);
+      }
+    }
+  } else if (typeof root === 'object') {
+    for (const key of Object.keys(root)) {
+      const val = root[key];
+      const p = prefix ? prefix + '.' + key : key;
+      if (val != null && (Array.isArray(val) || typeof val === 'object')) {
+        for (const leaf of flattenTree(val, p)) {
+          leaves.push(leaf);
+        }
+      }
+      leaves.push({ path: p, value: val, parent: root });
+    }
+  }
+  return leaves;
+}
+
+// Check if a concrete flattened path (e.g. "enrichments.0.topic") matches a
+// filter/style pattern with [] wildcards (e.g. "enrichments.[].topic").
+// Also returns the leaf.parent for style-to-highlight mapping.
+function leafMatchesPattern(leafPath, pattern) {
+  const lp = leafPath.split('.');
+  const pp = pattern.split('.');
+  let li = 0, pi = 0;
+  while (li < lp.length && pi < pp.length) {
+    if (pp[pi] === '[]') {
+      // []= matches one numeric segment
+      if (!/^\d+$/.test(lp[li])) return false;
+      li++; pi++;
+    } else if (lp[li] === pp[pi]) {
+      li++; pi++;
+    } else {
+      return false;
+    }
+  }
+  return li === lp.length && pi === pp.length;
+}
+
+// Extract filter-tag values from a flattened tree given a pattern path.
+// Returns deduplicated string values.
+function tagValuesFromTree(leaves, pattern) {
+  const vals = new Set();
+  for (const leaf of leaves) {
+    if (leafMatchesPattern(leaf.path, pattern)) {
+      if (leaf.value !== undefined && leaf.value !== null && leaf.value !== '') {
+        vals.add(String(leaf.value));
+      }
+    }
+  }
+  return [...vals];
+}
+
+// Collect all filter tags for a block from the doc's filter definitions.
+function collectBlockFilterTags(leaves, filterDefs) {
+  const tags = [];
+  for (const fd of filterDefs) {
+    tags.push(...tagValuesFromTree(leaves, fd.key));
+  }
+  return [...new Set(tags)];
+}
+
+function simpleMD(text) {
+  let t = esc(text);
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const paras = t.split('\n\n');
+  return paras.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+}
+
+function simpleMDInline(text) {
+  let t = esc(text);
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return t.replace(/\n/g, '<br>');
+}
+
+function renderBodyWithHighlights(bodyText, highlights, highlightMap) {
+  // Filter highlights with character position annotations
+  const positioned = highlights
+    .filter(h => h.start_char !== undefined && h.end_char !== undefined && h.start_char < h.end_char)
+    .sort((a, b) => a.start_char - b.start_char);
+
+  if (positioned.length === 0 || !bodyText) {
+    return `<div class="body-text">${simpleMD(bodyText)}</div>`;
+  }
+
+  // Merge overlapping/adjacent highlights
+  const merged = [];
+  for (const hl of positioned) {
+    if (merged.length === 0 || hl.start_char > merged[merged.length - 1].end_char) {
+      merged.push({ ...hl });
+    } else {
+      const last = merged[merged.length - 1];
+      last.end_char = Math.max(last.end_char, hl.end_char);
+      if (Math.abs(hl.sentiment) > Math.abs(last.sentiment)) {
+        last.sentiment = hl.sentiment;
+      }
+    }
+  }
+
+  // Split body text into paragraphs, preserving offsets
+  const paras = bodyText.split('\n\n');
+  const paraOffsets = [];
+  let offset = 0;
+  for (const para of paras) {
+    paraOffsets.push(offset);
+    offset += para.length + 2; // +2 for the \n\n separator
+  }
+
+  const paraHtmls = paras.map((para, pi) => {
+    const paraStart = paraOffsets[pi];
+    const paraEnd = paraStart + para.length;
+
+    // Find highlights that overlap this paragraph
+    const paraHls = merged.filter(h => h.start_char < paraEnd && h.end_char > paraStart);
+    if (paraHls.length === 0) {
+      return `<p>${simpleMDInline(para)}</p>`;
+    }
+
+    // Build segments within this paragraph
+    const segments = [];
+    let cursor = paraStart;
+    for (const hl of paraHls) {
+      const hlStart = Math.max(hl.start_char, paraStart);
+      const hlEnd = Math.min(hl.end_char, paraEnd);
+      if (hlStart > cursor) {
+        segments.push({ text: bodyText.slice(cursor, hlStart), highlighted: false });
+      }
+      const hStyle = highlightMap.get(hl);
+      const hBg = highlight_background(hStyle, hl.sentiment);
+      segments.push({
+        text: bodyText.slice(hlStart, hlEnd),
+        highlighted: true,
+        style: hBg,
+        sentiment: hl.sentiment,
+        topic: hl.topic
+      });
+      cursor = hlEnd;
+    }
+    if (cursor < paraEnd) {
+      segments.push({ text: bodyText.slice(cursor, paraEnd), highlighted: false });
+    }
+
+    const segHtml = segments.map(seg => {
+      const md = simpleMDInline(seg.text);
+      if (seg.highlighted) {
+        const color = seg.sentiment !== null ? sentimentColor(seg.sentiment) : '#e8c840';
+        const parts = [];
+        if (seg.topic) parts.push(escAttr(seg.topic));
+        if (seg.sentiment !== null) parts.push(`sentiment: ${seg.sentiment.toFixed(2)}`);
+        const title = parts.join(' · ');
+        const bgStyle = seg.style
+          ? seg.style.replace(/background:/g, 'background-color:')
+          : (() => {
+              const m = color.match(/[\d.]+/g);
+              return m ? `background-color:rgba(${m[0]},${m[1]},${m[2]},0.35);` : '';
+            })();
+        return `<mark class="inline-highlight" style="${bgStyle}border-left:3px solid ${color};" title="${title}">${md}</mark>`;
+      }
+      return md;
+    }).join('');
+
+    return `<p>${segHtml}</p>`;
+  });
+
+  return `<div class="body-text">${paraHtmls.join('')}</div>`;
+}
+
+// ---- Embedded Examples (no server needed) ----
+const EMBEDDED = {
+  "examples/Agilent_Transcript_1Q_2026.smd": `@document
+{
+    "schema_version": "0.2",
+    "type": "earnings_transcript",
+    "ticker": "A",
+    "company_name": "Agilent Technologies Inc.",
+    "year": 2026,
+    "fiscal_period": "Q1",
+    "calendar_period": "Q1",
+    "created": "2026-06-08T00:00:00Z",    
+    "filters":[        
+        {
+            "key":"block_type",
+            "label":"Content Type"
+        },
+        {
+            "key":"enrichments.[].topic",
+            "label":"Topics"
+        }
+    ],
+    "styles": [
+        {
+            "match": {"key": "block_type", "value": "business_update"},
+            "text": "Business Update"
+        },
+        {
+            "match": {"key": "block_type", "value": "qa"},
+            "text": "Q&A"
+        },
+        {
+            "match": {"key": "block_type", "value": "operator_comment"},
+            "text": "Operator"
+        },
+        {
+            "match": {"key": "enrichments.[].highlights.[].sentiment", "value": 0, "fn": "lt"},
+            "background_shade": ["#ffe0e0", "#cc0000"],
+            "background_opacity": 0.30,
+            "target": "highlight"
+        },
+        {
+            "match": {"key": "enrichments.[].highlights.[].sentiment", "value": 0, "fn": "gt"},
+            "background_shade": ["#e0ffe0", "#00aa00"],
+            "background_opacity": 0.30,
+            "target": "highlight"
+        },
+        {
+            "match": {"key": "enrichments.[].highlights.[].sentiment", "value": 0},
+            "background": "#f0f0f0",
+            "background_opacity": 0.25,
+            "target": "highlight"
+        }
+    ]
+}
+---
+
+@block
+{
+    "block_id": 0,
+    "block_type": "operator_comment"
+}
+---
+**Operator:** Ladies and gentlemen, thank you for joining us, and welcome to the Q1 2026 Agilent Technologies Inc. Earnings Conference Call. [Operator Instructions] I will now hand the conference over to Tejas Savant, Vice President, Investor Relations. Tejas, please go ahead.
+@block
+{
+    "block_id": 1,
+    "block_type": "business_update"
+}
+---
+**Tejas Savant:** Thank you, and welcome, everyone, to Agilent's conference call for the first quarter of fiscal year 2026. With me on the line are CEO, Padraig McDonnell; and CFO, Adam Elinoff. Joining for the Q&A will be Simon May, President of the Life Sciences and Diagnostics Markets Group; Angelica Riemann, President of the Agilent CrossLab Group, and Mike Zhang, President of the Applied Markets Group. This presentation is being webcast live. The press release for our first quarter financial results, investor presentation and information to supplement today's discussion, along with a recording of this webcast are available on our website at investor.agilent.com. Today's comments will refer to non-GAAP financial measures. Non-GAAP measures are supplemental and should not be considered a substitute for GAAP results. You'll find the most directly comparable GAAP financial metrics and reconciliations in the press release and on our website. Unless otherwise noted, all references to increases or decreases in financial metrics are year-over-year and references to revenue growth are on a core basis. All references to profitability metrics are on a non-GAAP basis. Core revenue growth is adjusted for the impact of currency exchange rates, and any acquisitions and divestitures completed within the past 12 months. Guidance is based on forecasted exchange rates. During this call, we will make forward-looking statements about the financial performance of the company. These statements are subject to risks and uncertainties and are only valid as of today. Agilent assumes no obligation to update them. Please refer to the company's recent SEC filings for a more detailed description of the risks and other factors that would cause our performance to differ from these forward-looking statements. And now I'd like to turn the call over to Padraig.
+@block
+{
+    "block_id": 2,
+    "block_type": "business_update"
+}
+---
+**Padraig McDonnell:** Thanks, Tejas, and welcome, everyone. It was a solid start to the year with the Agilent team executing well in a generally improving, albeit dynamic market environment. For the first quarter, Agilent reported $1.8 billion in revenue, growing 4.4% on a core basis within our November guidance range. End market conditions were largely consistent with our expectations with top line results affected by the winter storm in the U.S. during the last week of January. The storm drove roughly a $10 million revenue impact with the majority recovered at the beginning of February. The impact primarily came from our logistic providers not being able to ship products from our main Americas Logistics Center in Memphis, Tennessee for 3 days. This is typically the busiest shipping week of the quarter. Despite the weather, operating margins of 24.6% were in line with our expectations, setting a solid jumping off point for the remainder of the fiscal year. Moving forward, we anticipate benefiting from leverage on increasing volumes, and we expect to see tariff headwinds continuing to decrease, as well as incremental benefits from our Ignite Operating System that together will drive sequential margin improvement throughout the rest of the year. First quarter EPS of $1.36, also was within expectations. Adjusted for the impact of the storm, our first quarter revenue, operating margin and EPS all would have been above the midpoint of our November guidance ranges. A healthy underlying outcome. Throughout the quarter, the Agilent team remained as always committed to delivering for our customers. Before getting into the specifics of our first quarter results, I want to share my thoughts on 3 key business initiatives that are fueling our growth. These include our highly differentiated service organization that reinforces our customer intimacy, a theme you've heard me talk about frequently. An update on recent innovations. And finally, how the Ignite Operating System continues to drive Agilent's transformation. I want to start by talking about our differentiated customer intimacy. Last quarter, I highlighted our field service engineers outsized contribution to our deal funnel and conversion rates. This time, I want to focus on our enterprise services business where we had several marquee customer wins with major pharma accounts. Our enterprise services offerings allow us to cement our extraordinary customer intimacy and is a key strategic differentiator for Agilent that unlocks significant downstream value. This business represents roughly 10% of our total services revenue today and has grown nicely at a low double-digit CAGR. Beyond the direct revenue contribution, the relationship we build with our customer creates tremendous long-term value for Agilent and uniquely position us to gain wallet share over time. The offering includes embedding our expert on-site support technicians and customer sites and leveraging digital capabilities through CrossLab Connect that provide monitoring, alerting and performance analytics. This allows us to gain unique insights and visibility into lab operations and critically deliver improved efficiency and economics for our customer labs. These successful outcomes position us as a trusted partner, one customers can count on to provide critical data and insights that inform their future technology needs and instrument purchasing decisions. We have agreements with nearly all of the top 20 biopharma companies. In addition, we won 18 competitive displacements across our end markets over the past 3 years. Early customer feedback from a recent marquee win reinforces the value of having our specialists on site, including faster response times, improved parts availability and better advice on consumable and system usage. The insights that we gain from our leading services team are a key success factor in driving customer-focused innovation that underpins durable long-term growth at above market rates. I want to highlight several recent examples that are resonating particularly well with our customers. Starting with our Altura ultra-inert column portfolio. In October, we launched our first Altura column to support biopharma workflows, including GLP-1s. Already, 50% of the top 20 biopharma companies have ordered these columns since we launched. And Altura has more than doubled our biocolumn growth to over 30%, a testament to Altura's compelling performance. Just last month, we launched our next column in the Altura family, focused on improving PFAS workflows. These columns are specifically developed to solve key workflow challenges and address new EU regulations. Plus the double throughput for customers by enabling separation of both short and long chain PFAS in a single workflow. The launch is off to an excellent start with strong demand out of the gate and extremely positive customer feedback versus competitor offerings. You can expect continued expansion of the Altura family for new use cases later this year and beyond. Next, I want to highlight the Pro iQ LC/MS, which continues to build momentum since its mid-summer launch. We're seeing a robust uptake, with growth of our single-quad family exceeding 40% in the quarter. The value proposition of an advanced single-quad LC/MS with expanded mass ranges resonating and is particularly compelling for pharma customers who are transitioning from small molecule to biologics and monoclonal antibodies. Our cancer diagnostics business also is innovating to meet customer needs. Last quarter, I talked about the expansion of our most advanced automated platform, Omnis to a broader set of customers. This launch is off to a very strong start, offering medium throughput labs access to the latest technology with attractive economics. Also within cancer diagnostics is our new S-540-MD Slide Scanner System, which we announced in late January as part of our continued effort to enable the latest digital tools for our cancer diagnostic customers. Finally, early in the quarter, our market-leading spectroscopy business announced the release of our Raman Insight BRT series alarm-resolution system. The new system offers next-generation throughput and sensitivity to enhance safety and streamline operations at airport security checkpoints. This new instrument has secured a $9 million TSA contract during the quarter, and we are confident that we are well positioned to win larger aviation security tenders in the coming years. The last topic I want to focus on is our Ignite Operating System. As you know, we launched Ignite at the beginning of 2025 to drive execution excellence, accelerate decision-making and unlock the full value of Agilent as an integrated enterprise. Over the past year, Ignite has evolved into our enterprise operating system, a core differentiator that aligns strategy, resources and accountability to drive sustainable growth, margin expansion and long-term shareholder value. Ignite has already delivered clear financial results in its first 12 months, including doubling our pricing realization, generating substantial procurement savings, simplifying our organization structure, and launching our tariff mitigation program. Also Ignite demonstrated its effectiveness in M&A execution through the successful BIOVECTRA integration, establishing a repeatable playbook to accelerate value capture in future transactions. In this fourth quarter alone, Ignite delivered nearly 200 basis points of pricing, continued tariff expense reductions, and a very successful launch of our new agilent.com website that helped drive growth in digital orders at more than 2 times of our overall order book. Looking ahead to the remainder of FY '26, we are expanding Ignite into new value creation work streams and leveraging a portion of savings to reinvest in the business. These work streams include increasing returns and innovation investments by improving speed to market, advancing digital and e-commerce capability to enhance commercial productivity, and deploying targeted artificial intelligence initiatives with clear ROI to enhance customer insights, automate routine work and compress manufacturing cycle times. We are also accelerating software development and enhancing our supply chain capabilities by executing no regret investments that improve efficiency, resilience and proximity to customers in an evolving geopolitical environment. Now let me share some additional details about our Q1 results, starting with our end markets. The improvement that we saw in our end markets across last year was generally maintained throughout the first quarter. Overall, we are seeing underlying momentum in our markets. Importantly, secular trends in our largest end markets remain on a strong footing. That includes reshoring of pharma and semiconductor manufacturing, GLP-1 uptake and LC and GC instrument replacement cycles. Pharma growth was 7%, in line with expectations with double-digit growth in the biotech space supported by increased funding and M&A activity late in the calendar year. Mid-single-digit small molecule growth was also solid showing continued momentum from 2025. The quarter saw a modest benefit from continued normalization in the calendar year-end budget flush in line with our expectations. We delivered excellent GLP-1 growth of 50%, with healthy contributions coming from our specialty CDMO as well as our analytical lab business. Our specialty CDMO business grew low double digits during the quarter, and we continue to expect mid-teens growth for the year. We saw continued strength in chemicals and advanced materials market. The 9% growth in CAM was above our expectations with exceptional strength on the material side of the business with growth of more than 20%. This strong result in advanced materials demonstrates our leadership in providing solutions for the top semiconductor manufacturers globally. The current shortage of memory chips and a global effort to achieve semiconductor supply chain independence, has driven investment by these firms in our leading atomic spectroscopy tools. With support from the recent Omnis family launch, the diagnostics and clinical business continued to perform well, growing at 7% again this quarter. Environmental forensics was flat, with continued softness in government funding in the U.S. and China offset by growth in the rest of Asia and Europe. In Q1, the food business declined 4%, which outperformed our expectations with strong low double-digit growth ex China. As a reminder, the food market was the primary beneficiary of the large China stimulus that boosted growth in the first quarter of FY '25. And finally, academia and government, our smallest market, was down 8%, more than expected in the quarter. Academia and government conditions in the U.S. continue to be soft, where customers using available funding to keep their labs running as opposed to investing in new capital equipment. Excluding academia and government, our instruments grew at a healthy mid-single-digit rate. Our instrument book-to-bill has now been at or above 1 for the eighth consecutive quarter. The Infinity III HPLC continues to delight our customers. The LC instrument replacement cycle momentum built by our differentiated Infinity III system during FY '25 continued through the first quarter of FY '26. And with LC growth in the high single digits, we are gaining share globally versus our competition. On the GC side of the replacement cycle, we saw low single-digit growth, a strong result considering the tough year-over-year compare from significant volumes associated with last year's Chinese stimulus. Ex China, GC instrument growth was mid-single digits, in line with our expectations of around 100 basis points of lift during the GC replacement cycle. And even with these strong results, the upside from pharma reshoring has yet to impact our numbers. We're seeing increased activity in U.S.-based pharmaceutical manufacturing as companies rethink resilience and capacity. Based on announced investments and recent customer activity, we estimate this will represent a $1 billion addressable market opportunity through 2030. We continue to expect the first orders from reshoring to book late this year and the revenue impact from those orders to bolster top line growth in FY '27 and beyond. As we look to the rest of the year, our priorities remain unchanged. Advance our Ignite Operating System, further enhance commercial execution, and capture opportunities from improving end markets, innovative new products and a multipronged replacement cycle. With a stellar start to the year and the outlook for end markets broadly consistent with our original expectations, we are maintaining our expected core growth range of 4% to 6% for the full year. We now expect between $5.90 and $6.04 of earnings per share in FY '26, with a $0.04 increase due to favorable currency impact. For Q2, early trends are encouraging, and we are expecting core growth of approximately 4% to 5.5%, which includes a majority of the $10 million storm impact from late in the first quarter. EPS is expected to be between $1.39 and $1.42, representing a 7% growth at the midpoint of our range. We remain highly disciplined around capital deployment, investing for organic growth through innovation and capacity expansion. Simultaneously, we are focused on M&A targets that are both a strategic fit and financially attractive. Now let me hand it over to Adam, who will provide details on the quarter and our financial outlook.
+@block
+{
+    "block_id": 3,
+    "block_type": "business_update"
+}
+---
+**Adam Elinoff:** Thanks, Padraig, and good afternoon, everyone. In my comments today, I will provide additional details on revenue in the quarter, as well as walk through the income statement and cover other key financial metrics. I'll then cover our updated full year and second quarter guidance. Starting with Q1. Revenue was $1.8 billion. On a core basis, we posted growth of 4.4%, while reported growth was 7%. Currency had a favorable impact of 2.6%, in line with our November guidance. At a business segment level, ACG grew 6%. That's in line with expectations, driven by strong consumables growth in the high single digits, solid performance in services and balanced growth globally with all regions growing mid-single digits or better. AMG grew 4% ahead of expectations. Growth was led by double-digit performance in spectroscopy, fueled by the excellent results in the semiconductor space that Padraig mentioned earlier. LDG grew 3%, a bit below expectations. In addition to the weather impact, we saw softness in academia and government that challenged our cell analysis and genomics results. On a geographic basis, we saw our strongest growth in Asia, with China growing 6% and the rest of Asia growing a robust 13%. Europe was a bit slower than expected with 4% growth as transient discussions around higher tariffs caused some customers to slow purchasing decisions late in the quarter. Americas growth of 1% was directly impacted by the weather as well as pockets of softness in our smaller end markets. Q1 gross margins were 53.7%. On a year-over-year basis, they were down by 100 basis points, primarily due to tariff headwinds. Operating margin was 24.6%, in line with our expectations, and down 50 basis points year-over-year on increased tariff expenses and normalized performance-based pay in the current year. Now moving below the line. We had $10 million of other income, while our tax rate was 14.5% as expected. Finally, we had 284 million (sic) [ 283 million ] diluted shares outstanding in the quarter, slightly better than expected with some incremental share repurchases during the quarter. Putting it all together, Q1 earnings per share were $1.36 and grew 4%. Adjusted for the weather, we would have been above the midpoint of our first quarter guidance range. We are confident we will see improved earnings growth through the remainder of the year, driven by improving volumes and easier tariff and performance-based pay compares. Now let me turn to cash flow and balance sheet. Operating cash flow was $268 million in the quarter, and we invested $93 million in capital expenditures. We purchased $152 million in shares and paid $72 million in dividends during the quarter. And we ended the quarter with a net leverage ratio of 0.8 turns, maintaining our strong balance sheet. Now let me share some additional details on the updated outlook for the year and the guidance for our second quarter. Because of changes in FX, we now expect fiscal year '26 revenue to be in the range of $7.3 billion to $7.5 billion on a reported basis. This continues to represent growth of 4% to 6% on a core basis, as currency is now expected to be a 1.5% tailwind during the year. This revenue guidance embeds full year business segment, end market and geographic growth assumptions that are consistent with what we shared in November. Our largest end markets, pharma, CAM and diagnostics and clinical are all off to a strong start. Across our smaller end markets, we saw some pockets of softness relative to our expectations in the first quarter, especially in our cell analysis business where academic customer budgets are most heavily indexed to government funding. Going forward, we continue to expect low single-digit full year decline in academia and government, flat performance in food, and low single-digit growth in environmental and forensics, partially helped by easier comps for the remainder of the year. Moving down the P&L. We continue to expect to deliver 75 basis points of operating margin expansion at the midpoint. And while we continue to evaluate the evolving tariff situation in light of recent developments, this guide does not incorporate material changes in tariff rates relative to our view at the start of the year. While we still await the details, we do not expect a meaningful change to our outlook based on the high-level proposals that have been discussed. Our expected tax rate for fiscal year '26 is unchanged at 14.5%. We also expect $22 million of other income and 283 million diluted shares outstanding for the year. Fiscal year non-GAAP earnings per share are now expected to be between $5.90 and $6.04, representing earnings growth of 5.5% to 8% with the $0.04 increase due to a favorable currency outlook versus our original guide. For your modeling, let me share some additional expectations we have incorporated into our guidance for the year. We continue to expect pricing growth of at least 100 basis points, supported by Ignite. Although the tariff situation is evolving, we expect to fully offset tariff impact over the course of the year through a combination of cost savings and pricing actions. The tariff dynamics will drive a modestly more than typical sequential improvement in operating margin over the course of the year. As we have said before, this translates into a slight second half weighting on operating profit and EPS versus what we typically see. There is no change to our operating cash flow range of $1.6 billion to $1.7 billion, and we are still expecting to invest approximately $500 million in capital expenditures. Now moving to the second quarter. We expect our reported revenue to be in the range of $1.79 billion to $1.82 billion. This represents growth of roughly 4% to 5.5% on a core basis, while currency is expected to be approximately a 3% tailwind. This outlook includes weather delayed revenue from Q1. It also assumes our academia and government end market declines in the mid-single digits in Q2. We expect our operating margin to improve by approximately 100 basis points relative to the first quarter. Our guide assumes 283 million diluted shares outstanding in the second quarter. Second quarter EPS guidance is $1.39 to $1.42, representing growth of 6% to 8%. With that, I'll turn the call back over to Padraig for closing comments.
+@block
+{
+    "block_id": 4,
+    "block_type": "business_update"
+}
+---
+**Padraig McDonnell:** Thanks, Adam. As you've heard, FY '26 is off to a good start. Our unique growth drivers, including superior customer intimacy developed by our best-in-class services team, a healthy innovation pipeline to deliver products that solve real-world customer problems, and the Ignite Operating System that brings together our best attributes for the benefit of all stakeholders, combined to drive growth and operational leverage that fuels our success. As the year unfolds, we are well positioned to benefit from the instrument replacement cycle and continuing recovery across our largest end markets, to win share and deliver resilient above-peer growth and margin performance over the long term. I also wanted to take this opportunity to express my gratitude to the Agilent team for their exceptional efforts throughout the quarter. I especially want to recognize our global operations and logistics colleagues who worked tirelessly to meet the challenges presented by the weather and deliver for our customers.  Thank you for your attention. I'll turn it back over to Tejas for Q&A. Tejas?
+@block
+{
+    "block_id": 5,
+    "block_type": "business_update"
+}
+---
+**Tejas Savant:** Thanks, Padraig. Nicole, can you please share the instructions for the Q&A?
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 6
+}
+---
+**Operator:** [Operator Instructions] Your first question comes from the line of Tycho Peterson with Jefferies.
+@block
+{
+    "block_id": 7,
+    "block_type": "qa",
+    "qa_thread_id": "0",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Weather impact & margin recovery",
+            "highlights": [
+                {
+                    "sentiment": 0.5,
+                    "text": "we've already seen that come back with the majority of it. There are some pieces of it that will take a little longer, and that's really related to services and things like that, that don't happen instantly. So we've already recovered the vast majority of it."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "from a year-over-year basis, we expect the second quarter to be a 50 basis point improvement, and that's really driven by pricing, volume and then Ignite savings."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "when you move through the rest of the year, that's where you start to see the acceleration in our margin expansion. And then that's driven by continued volume and leverage -- volume leverage, pricing in Ignite."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "the tariffs are fully mitigated by the second half of the year."
+                }
+            ]
+        }
+    ]
+}
+---
+**Jack Melick:** This is Jack on for Tycho. Just wanted to walk through the impact of the snowstorm and expectations for catch-up there. I appreciate you said $10 million in revenues. Just curious if that's already in hand for 2Q, or something that's still being recouped? And then any color on margin impact that would have had in the quarter gross margins and operating if it would have been without the snowstorm?
+
+**Padraig McDonnell:** Yes. So I'll start off, and I'll hand it over to Adam. So first of all, a really solid finish overall with 4.4% growth in high single digits in our 3 markets. But Adam, can you give some color around the weather?
+
+**Adam Elinoff:** Yes. So thanks. And I'd first like to say I didn't think I'd be on this call talking about the weather. So it's always fun to do that. So when you think about the impact of the weather, we said it was about $10 million. We've already seen that come back with the majority of it. There are some pieces of it that will take a little longer, and that's really related to services and things like that, that don't happen instantly. So we've already recovered the vast majority of it. Then to your second question related to margin, it would have been a very modest impact to margin. So what we delivered in the quarter was a reasonable proxy for what we actually -- the actual performance.
+
+**Jack Melick:** Okay. That's helpful. And then sticking on margin. I appreciate you're still guiding to 75 bps for the year. Can you just give a little bit more color on the cadence from here in the bridge to that improvement after being down a little bit in 1Q? I think you said slight second half weighting. I guess just what's baked in for 2Q versus the second half? And then what do you see as the biggest swing factors to that step-up?
+
+**Adam Elinoff:** Yes. So I'll take this one. So from a year-over-year basis, we expect the second quarter to be a 50 basis point improvement, and that's really driven by pricing, volume and then Ignite savings. And then that's offset by performance-based pay and once again, the tariffs. And as you know, the tariffs, or as we've talked about, the tariffs are fully mitigated by the second half of the year. Then when you move through the rest of the year, that's where you start to see the acceleration in our margin expansion. And then that's driven by continued volume and leverage -- volume leverage, pricing in Ignite. And then it's slightly offset by some of the people costs and growth in investments that we're making through the year.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 8
+}
+---
+**Operator:** Your next question comes from the line of Vijay Kumar with Evercore ISI.
+@block
+{
+    "block_id": 9,
+    "block_type": "qa",
+    "qa_thread_id": "1",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Faster growth in 2H",
+            "highlights": [
+                {
+                    "sentiment": -0.3,
+                    "text": "your guidance for first half implies slightly less than 5 and the back half to hit the midpoint it needs to be above 5. Can you just talk about what drives the back half step up comps to get tougher? "
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "You can see that in pharma were driven by GLP-1s, but also the replacement cycle going extremely well."
+                },
+                {
+                    "sentiment": 0.1,
+                    "text": "step-up between the first half and the second half isn't that big. It's really 49 in the first half and then 51 in the second half on revenue"
+                }
+            ]
+        }
+    ]
+}
+---
+**Vijay Kumar:** Maybe, Padraig, my first one, high level. When I look at this cadence for the year, right, first half versus back half, your guidance for first half implies slightly less than 5 and the back half to hit the midpoint it needs to be above 5. Can you just talk about what drives the back half step up comps to get tougher? Is this some new product cycles? Or is there something else that's going on in the business that gives us this back half visibility?
+
+**Padraig McDonnell:** Yes. I mean the underlying -- we see a really strong underlying momentum in our business in our key biggest markets. You can see that in pharma were driven by GLP-1s, but also the replacement cycle going extremely well. You see our Infinity III number growing in double digits, I think, and we're seeing from our latest market share report that we're taking oversized share in that area. And then, of course, you can go down through our CAM markets as well, where you can see a lot of secular drivers. We grew 20% in advanced materials from the semiconductor onshoring and so on. So underlying momentum in the markets, we have very good visibility in funnels. We're seeing very strong win loss rates. And of course, we're going to watch that as we go forward, but we see that continued momentum to improve.
+
+**Adam Elinoff:** And then I would just jump in. The step-up between the first half and the second half isn't that big. It's really 49 in the first half and then 51 in the second half on revenue.
+
+**Vijay Kumar:** Understood. And then maybe one on tariffs, just given the Supreme Court ruling. How are you thinking about the tariff assumptions, right? Are you assuming now a global minimum of 15%? And how does that change versus your prior assumptions?
+
+**Padraig McDonnell:** Adam, I'll give this one to you.
+
+**Adam Elinoff:** Sure. So I guess the first thing is, one, the situation continues to be dynamic. And we don't know that much information about what the 15% would look like and exactly how it's going to play out. But if you assume that the 15% is on the surface, what it says across all different markets, what I would say is we wouldn't change our guide on it. And it really comes down to a couple of things, is, one, we made a series of no regret moves. And that was really about leveraging our supply chain, bringing our manufacturing closest to the customer. So that wouldn't change. The second is we've been utilizing pricing and surcharges, really as appropriate and been very thoughtful about that. So that also helps us. And I guess the third piece I would add is in any dynamic market -- in any dynamic market conditions as you see and we're living in. What gives me a confidence is I look at how the Ignite Operating System has been able to allow us to react and be resilient as things change. So right now, we wouldn't change any of our guide based on what we know. That said, we're ready to react and we're ready to respond as things evolve.
+
+**Padraig McDonnell:** Yes. I would just close it off by saying the actions we've taken to bring manufacturing close to our customers and strengthen supply chains are no regret moves. We have that planned for a long time now. And outside of surcharges, we would not expect to reverse them in any way.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 10
+}
+---
+**Operator:** Your next question comes from the line of Doug Schenkel with Wolfe Research.
+@block
+{
+    "block_id": 11,
+    "block_type": "qa",
+    "qa_thread_id": "2",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Capital equipment demand & M&A strategy",
+            "highlights": [
+                {
+                    "sentiment": -0.3,
+                    "text": "some of your peers have suggested that demand may have slowed a bit over the past several weeks. And I'm just trying to get at whether or not this is just, kind of, normal typical seasonality or if there's anything you're seeing from an environmental standpoint"
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "We've seen our funnels continue to be steady, in a lot of cases growing. And why is that? I think CapEx conditions continue to improve with the MFN deals reducing the tariff uncertainty."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "You see the strong GLP-1 growth and our CDMO -- the base on CDMO growing extremely well. And I think we're very pleased to see how the trajectory of orders continue to go on the CapEx side."
+                },
+                {
+                    "sentiment": 0.2,
+                    "text": "we like our organic business, and we like our plan. We don't need to do any transformative deals or any transformative transaction to achieve those growth ambitions."
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "The bar is very high for a transformative deal, and there aren't that many of those out there. So we're really focused on making sure that any deal that we do is aligned to our enterprise pillars"
+                }
+            ]
+        }
+    ]
+}
+---
+**Douglas Schenkel:** Two topics I wanted to address. One is the capital equipment environment and then the second is M&A. So on the first topic, how would you describe demand month-by-month going back to, say, November and December and through the beginning of the calendar year? I ask because some of your peers have suggested that demand may have slowed a bit over the past several weeks. And I'm just trying to get at whether or not this is just, kind of, normal typical seasonality or if there's anything you're seeing from an environmental standpoint, meaning uncertainty related to things from a policy dynamics that are flaring up again and selling things down? Or again, whether this is just kind of normally what you would see going from calendar Q4 to calendar Q1? The second question is -- or second topic is really on M&A. And simply put, how would you describe the environment, your readiness and your appetite to do a multibillion dollar deal?
+
+**Padraig McDonnell:** Thanks, Doug. I'll take the first one, and Adam can take the second one. So if you look at a proxy of pharma and you look at our replacement cycle, we had a very strong quarter. Biotech led that business. And of course, it was what we saw was a reasonable budget flush, it wasn't over the top budget flush, but a reasonable budget flush at the end of December. I think January, you saw -- we talked about some of the disruption we saw intra-quarter in Europe, for example, and the weather impact. But I would say it's been very, very steady. We've seen our funnels continue to be steady, in a lot of cases growing. And why is that? I think CapEx conditions continue to improve with the MFN deals reducing the tariff uncertainty. That's been very big for our pharma customers. You see the strong GLP-1 growth and our CDMO -- the base on CDMO growing extremely well. And I think we're very pleased to see how the trajectory of orders continue to go on the CapEx side. Now of course, we're watching our funnels as we go forward on it. So I wouldn't say there's anything that we see any deterioration in terms of CapEx. And on the capital allocation, which is a big question. I'm sure we get it a few times today. I'm going to get Adam to answer that one.
+
+**Adam Elinoff:** So thanks for the question. And I think it's important that we always start with our capital allocation priorities, which aren't changing. So one, we're prioritizing investments in growth, and that's through innovation -- internal innovation. Second thing is M&A. And the third is investments in strategic capacity expansion. And at the same time, we're going to continue to return excess capital to shareholders, and that's through growing dividend and share repurchases. The next thing I want to say is context is we like our organic business, and we like our plan. We don't need to do any transformative deals or any transformative transaction to achieve those growth ambitions. Now we don't have any arbitrary size filter in our deal funnel, but I want to be very, very, very deliberate about this. The bar is very high for a transformative deal, and there aren't that many of those out there. So we're really focused on making sure that any deal that we do is aligned to our enterprise pillars, that we're focused on opportunities where we have a right to win. We're able to integrate whatever asset we're buying, and that we pay the right price for it so that we're creating -- generating cash-on-cash returns above our hurdle rate. So we think the market out there, there's some nice opportunities, and we're continuing to evaluate those. But we're looking at them against the filter that I just said and once again, we like our organic business, and we don't need to do any kind of transformative transaction to achieve our ambitions.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 12
+}
+---
+**Operator:** Your next question comes from the line of Patrick Donnelly with Citi.
+@block
+{
+    "block_id": 13,
+    "block_type": "qa",
+    "qa_thread_id": "3",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "LDG segment pressure & CDMO outlook",
+            "highlights": [
+                {
+                    "sentiment": -0.3,
+                    "text": "LDG grew 3% in the quarter. It was a bit below our mid- to high-digit expectations."
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "we've got reasons to believe we're at or near the bottom. U.S. academic science budgets appear to be plateauing. Europe is more stable."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "we saw low double-digit growth in the first quarter as expected... We continue to expect mid-teens growth for the full year, and that's based on our production schedules and the demand dynamics we're currently seeing in the market."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "our mix of business in NASD continues to skew towards larger commercial batches with about 60% coming from commercial programs."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "We did see strong year-over-year order intake in the first quarter... we've got good visibility to the pipeline, and we see revenue ramp in the second half of the year."
+                }
+            ]
+        }
+    ]
+}
+---
+**Patrick Donnelly:** Padraig, I wanted to focus on the LDG segment. I understand the weather impact. It did come in light, even backing that out. It sounds like it's around the cell analysis and genomics piece, maybe some softer purchasing in Europe. It does sound like LC/MS and the CDMO overall held in well. Can you just expand on what you saw there? And then also staying in the LDG segment, just the profitability probably for Adam. What drove the softness there? Is that just mix with the cell analysis? I wanted to get a little more color there.
+
+**Padraig McDonnell:** Yes. Thanks, Patrick. And I think LDG grew 3% in the quarter. It was a bit below our mid- to high-digit expectations. And I think in addition to the weather impact, we saw softness, I think, in academia and government that challenged our cell analysis and genomics business. But our larger end markets, pharma biotech and diagnostic grew high single digits. But Simon, do you want to give some more color on the LDG what you saw in the quarter, particularly on those businesses?
+
+**Simon May:** Yes. Thanks, Padraig. As Padraig already mentioned there, we were challenged by the weather situation and also the ongoing softness that we're seeing in academic research markets, most notably in the U.S. And in our cell analysis portfolio as well. We've got a relatively lower portion of recurring revenue mix than we have elsewhere in our portfolio. When we've got a bit more exposure on the smaller capital equipment side there. So as we think about the macro situation going forward, the exposure to academic and government is always going to be there. And we still see a lot of cautious spending. But we also think we've got reasons to believe we're at or near the bottom. U.S. academic science budgets appear to be plateauing. Europe is more stable. I think we're anticipating some modest incremental improvement in academia and government in Europe. And also the feedback I've been getting from the teams as I've been seeing customers and attending the sales meetings over the past few weeks is that there's a sense of optimism in the field. We've got a strong portfolio. We've got very strong conviction in the portfolio on a medium, long-term basis, and I think we'll see that improvement begin to unfold as time passes.
+
+**Adam Elinoff:** The only thing I'd add on margin is beyond the weather, the academic and government softness is there's the CDMO batch cadence that also impacts the margin in the first quarter. With CDMO, obviously, a batch is not a batch is not a batch. They're all a little bit different and have different revenue profiles and different timing. So just given the cadence we had in Q1 that also impacted the margin.
+
+**Patrick Donnelly:** Okay. That's helpful. And then, Adam, I wanted to pick up right there in terms of CDMO. Can you guys just talk about NASD, BIOVECTRA, what you saw in the quarter? It sounded like overall, it was low double-digit growth for specialty CDMO. Can you just give a bit more color? And again, it sounds like the mid-teens, still very much on the table. So just the visibility and pacing of those businesses as we work our way forward.
+
+**Adam Elinoff:** Yes. So I'll start off and then I'll pass it over to Simon if he has anything to add. But yes, absolutely. So we saw low double-digit growth in the first quarter as expected. And once again, it really is about the batch cadence, and it's the normal kind of quarter-over-quarter revenue variance that you'd expect. We continue to expect mid-teens growth for the full year, and that's based on our production schedules and the demand dynamics we're currently seeing in the market. And I guess the only other thing I would add that may be helpful for you is our mix of business in NASD continues to skew towards larger commercial batches with about 60% coming from commercial programs. And then on the other hand, commercial programs represent about only 1/3 of the BIOVECTRA revenue. So they have a little bit different profile. But we expect, based on what we have now, that it will continue to ramp through the year.
+
+**Simon May:** I think Adam covered most of it there. Just to add a couple of points. We did see strong year-over-year order intake in the first quarter. As Adam said, NASD continues to skew favorably towards commercial programs. And as we look to the rest of the year, we've got good visibility to the pipeline, and we see revenue ramp in the second half of the year.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 14
+}
+---
+**Operator:** Your next question comes from the line of Dan Brennan with TD Cowen.
+@block
+{
+    "block_id": 15,
+    "block_type": "qa",
+    "qa_thread_id": "4",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Guidance confidence & CAM secular strength",
+            "highlights": [
+                {
+                    "sentiment": 0.7,
+                    "text": "we're really set up for success, Dan. You look at the innovative products really going extremely well, Infinity III and the replacement cycles, Pro iQ. The strong commercial team, good connection with customers and our enterprise service capabilities"
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "One is a pickup in the small and mid-cap biotech sector. All of the green shoots are still there... The second is academia and growth if we start to see more stability there"
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "if there was a stimulus, a bigger stimulus toward the end of the year, that would be an upside."
+                },
+                {
+                    "sentiment": 0.8,
+                    "text": "CAM, 9% growth. And of course, the advanced materials subsegment, which grew at 20%. We saw really robust demand because of our leading position around semiconductor."
+                },
+                {
+                    "sentiment": 0.8,
+                    "text": "We're number 1 by a long way in the CAM market by far. Our leadership positions and our market shares are unmatched in that."
+                }
+            ]
+        }
+    ]
+}
+---
+**Daniel Brennan:** Maybe just to start off, I understand if you back out the $10 million, the growth would have been right in line with the 5% and you kind of walked through all the puts and takes. But just kind of stepping back, you guys have been on a pretty consistent pace of like coming in ahead of guidance, 5% growth is still solid in this environment. Just wondering how we might think about the rest of your guidance in terms of what would drive here to the higher end to lower end, given that trend of consistently beating numbers and now it looks like more in line this quarter?
+
+**Padraig McDonnell:** Yes. I think -- I'm just talking at a high level, we're really set up for success, Dan. You look at the innovative products really going extremely well, Infinity III and the replacement cycles, Pro iQ. The strong commercial team, good connection with customers and our enterprise service capabilities that I talked about in my prepared remarks. And I think it was a solid Q1, and excellent growth despite the weather. And the top line, we're confirming it. I think it's prudent but appropriate given the macro uncertainty that's around as always. And I think the operating profit growth of 10% and 75 bps margin expansion at the midpoint is really well. I have to say, we've had a number of sales kickoffs around the globe in the last month. Funnels are very robust. The thing we've seen almost our best market share report that we've seen to date. So everything is moving in the right direction. So that gives us positivity as we go through the year.
+
+**Adam Elinoff:** Sure. No, I can just give you a little bit more detail on what would be -- pushes to the upside versus pushes to the downside of the guide, if that's helpful. And it's really around 3 things. One is a pickup in the small and mid-cap biotech sector. All of the green shoots are still there, but then there's that time lag between how does all the incremental investment, IPOs and M&A convert into actual spending investment. The second is academia and growth if we start to see more stability there that can push us to the upside. And then the third, while China remains stable and we believe it will be stable about that $300 million per quarter run rate. If there was a stimulus, a bigger stimulus toward the end of the year, that would be an upside. What I will say is there was a small stimulus in the first quarter, which we did very well in that offering. And so that would give us confidence if there was a second SAMR stimulus that happened later in the year, we would perform well in that. So that's what pushed to the upside. The downside is just then the opposite. If small and mid-cap remain pressured, academia and government continues to get worse. And then China, we see a decline in the low single-digit range versus our flat assumption.
+
+**Daniel Brennan:** And maybe a second one, just on CAM. Obviously, super important business, really strong quarter. You gave some color, but just a little bit more there in terms of why it came in better. I know you addressed it in the prepared remarks, maybe a little bit more color on how you're thinking about that going forward for the rest of the year?
+
+**Padraig McDonnell:** Yes, sometimes an underappreciated part of our business. It's our core business, our heritage is in the applied markets and CAM, 9% growth. And of course, the advanced materials subsegment, which grew at 20%. We saw really robust demand because of our leading position around semiconductor. And you see there's a lot of reshoring going on, on that. I think our spectroscopy and our GCMS tools are critical in that manufacturing supply chain and of course, for chemical plants that are around helping on that. So the ongoing reshoring really helps in that space. And I think also the increased clarity on tariff policies, if there is that and eased U.S.-China tensions and strong demand for memory chips. We're number 1 by a long way in the CAM market by far. Our leadership positions and our market shares are unmatched in that. So you put it all together, it's a very important secular driver for us, and we could see that continuing throughout the year.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 16
+}
+---
+**Operator:** Your next question comes from the line of Dan Leonard with UBS.
+@block
+{
+    "block_id": 17,
+    "block_type": "qa",
+    "qa_thread_id": "5",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Semiconductor reshoring & pharma GLP-1 diversification",
+            "highlights": [
+                {
+                    "sentiment": 0.5,
+                    "text": "it's not just memory shortage, but it's the reshoring of fabrication -- fabs that you see that globally. You even see in India where fabs are being set up also in Asia and the Americas."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "our chemical business is about 2/3, advanced materials is about 1/3 of the CAM business. So we expect that to continue."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "we're very well hedged on the GLP-1 side both from our CDMO side, but also our analytical side, we are testing both on the orals and on the injectable side."
+                },
+                {
+                    "sentiment": 0.7,
+                    "text": "GLP grew at 50% in the quarter and that was 7% for the analytical labs and on the CDMO side 120% growth."
+                },
+                {
+                    "sentiment": 0.7,
+                    "text": "40% growth in our single quad, which is right at the sweet spot of QA/QC. So it's a really, really strong momentum in that market"
+                }
+            ]
+        }
+    ]
+}
+---
+**Daniel Leonard:** And I'll pick up right where you left off. Padraig, you talked about atomic spectroscopy upside in the quarter due to the memory shortage. It's not something you talk about a lot. So how are you framing that opportunity?
+
+**Padraig McDonnell:** Yes. I mean it's not just memory shortage, but it's the reshoring of fabrication -- fabs that you see that globally. You even see in India where fabs are being set up also in Asia and the Americas. So I think that has been -- it's been really a mix of all that together and a lot of demand on that side. Also on the chemical side, you have downstream processes that are needed for AI that supports that in terms of it, and that really bolsters a lot of demand. And just to give a bit of color, our chemical business is about 2/3, advanced materials is about 1/3 of the CAM business. So we expect that to continue. Continue to see that growing. And of course, the energy business, where we're working on the battery side is naturally head against oil volatility as well. So we continue to see good strength in that. So it's a mixture of all of the above.
+
+**Daniel Leonard:** And just a follow-up on what you're seeing in pharma. You mentioned a mid-single-digit growth in small molecule. Is that all GLP-1s? And can you talk about the situation in pharma outside of GLP-1s?
+
+**Padraig McDonnell:** Yes. So biotech kind of grew low double digit for us. That's really around our specialized CDMO core growth of low double digits. [ Utech ] what we see as the U.S. biotech recovery is starting in well-funded large caps. We see that continuing, small and mid-caps, improved funding, backdrop is really helping. And breaking it down, if you look at our -- if you look at our small molecule business, which is very solid at mid-single-digit growth, you kind of see Asia leading the way in small molecules with low double-digit growth. We see that continuing. And of course, we're very well hedged on the GLP-1 side both from our CDMO side, but also our analytical side, we are testing both on the orals and on the injectable side. And as we go forward on -- and GLP grew at 50% in the quarter and that was 7% for the analytical labs and on the CDMO side 120% growth. So I think you underpin all of that in the market conditions. And then you look at our replacement cycle moving forward, 40% growth in our single quad, which is right at the sweet spot of QA/QC. So it's a really, really strong momentum in that market as we -- and we see that continuing for the rest of the year.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 18
+}
+---
+**Operator:** Your next question comes from the line of Jack Meehan with Nephron Research.
+@block
+{
+    "block_id": 19,
+    "block_type": "qa",
+    "qa_thread_id": "6"
+}
+---
+**Tejas Savant:** Operator, can we go to the next question, and we'll circle back to Jack once he's back on.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 20
+}
+---
+**Operator:** Absolutely. Your next question comes from the line of Michael Ryskin with Bank of America.
+@block
+{
+    "block_id": 21,
+    "block_type": "qa",
+    "qa_thread_id": "7",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Q1 mixed dynamics & full-year guide resilience",
+            "highlights": [
+                {
+                    "sentiment": -0.2,
+                    "text": "sounds like you've had a slightly slower start to the year than you anticipated in select markets like cell analysis, like AMG specifically."
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "there was minor differences in our small markets, but our key markets actually performed quite well. So if you think about pharma, CAM and then our diagnostics business, they all performed very well."
+                },
+                {
+                    "sentiment": 0.1,
+                    "text": "academia and government side, it's the smallest part of our business. NIH is 1% of our funding."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "the real momentum we have in the key markets, continued improvement in pharma. We're seeing spend in biotechs. GLP-1 business continues to be extremely strong."
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "we're maintaining our end market guide. We expect them to land in roughly the same place."
+                }
+            ]
+        }
+    ]
+}
+---
+**Michael Ryskin:** I want to follow up on what -- I think Patrick was asking about earlier about some of the moving pieces in the quarter, especially with the $10 million weather shift. I just want to make sure we're understanding the dynamics correctly. My read of it is it sounds like you've had a slightly slower start to the year than you anticipated in select markets like cell analysis, like AMG specifically. Maybe a little bit on food. I just want to make sure I'm understanding that correctly. Again, I don't want to blow it out of proportion, but especially with the $10 million shift, especially with the $10 million shift. Just want to make sure we get that. And then a follow-up to that is, obviously, you're maintaining your full year core guide. Is there something that's offsetting that where you talked about GLPs, you talked about CAM. Is the strength there offsetting it? Is it just sort of like you had buffer in the model built in and you're absorbing some of these hits you expect to recoup it later in the year? Maybe the easier way to ask all of this is you've given us sort of -- you typically give us an end market breakout for the year in terms of core growth. If you could run through that compared to where you were a quarter ago, that might be helpful.
+
+**Padraig McDonnell:** Adam, you want to take this one and I'll take the second part of that question?
+
+**Adam Elinoff:** Yes. So I think just in the dynamics of the quarter, there was minor differences in our small markets, but our key markets actually performed quite well. So if you think about pharma, CAM and then our diagnostics business, they all performed very well. And then we had small pockets of slight differences from where we guided. And overall, we are actually doing well. And then the unfortunate was the storm hit in the last 3 days of the quarter, which are our biggest days in the quarter, and we weren't able to recognize the revenue, which we've since recognized the following actually Monday, so. And then I'll pass it over to Padraig.
+
+**Padraig McDonnell:** Yes. It's -- I don't want to kind of -- if you're looking at the academia and government side, it's the smallest part of our business. NIH is 1% of our funding. So it's slightly less than what we expected. But it is really the smallest part of our business. And I think I described the real momentum we have in the key markets, continued improvement in pharma. We're seeing spend in biotechs. GLP-1 business continues to be extremely strong. CDMO continues to move forward, and CAM strength. And you put that all together with the funnels that we're seeing and our outsized growth on our Infinity III. If you look at that compared to our peers, we're almost 2x in terms of the quarter, and that's driving to replace that cycle. So all of those things moving together, we're very positive about the rest of the year.
+
+**Adam Elinoff:** And then I'd just remind you that for the full year, we're maintaining our end market guide. We expect them to land in roughly the same place.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 22
+}
+---
+**Operator:** Your next question comes from the line of Jack Meehan with Nephron Research.
+@block
+{
+    "block_id": 23,
+    "block_type": "qa",
+    "qa_thread_id": "8",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "Ignite M&A integration & diagnostic strategy",
+            "highlights": [
+                {
+                    "sentiment": 0.6,
+                    "text": "Ignite program is really about a management system and how do you bring a bunch of different functions together to execute on a project in an efficient way. And that's exactly what an integration is."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "BIOVECTRA is we've leveraged that capability to integrate BIOVECTRA into our network. And so that's another proof point to our readiness to integrate the right asset."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "we're focused on increasing our service and recurring revenue mix."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "diagnostics is one of our businesses. That's not excluded, of course, but it's a very durable market. We have a 7% growth in Q1 and pathology is a mid-single-digit grower as we've seen over time"
+                }
+            ]
+        }
+    ]
+}
+---
+**Jack Meehan:** Hopefully, you can hear me now?
+
+**Padraig McDonnell:** Yes.
+
+**Jack Meehan:** Excellent. Sorry about that. One follow up on the M&A question because this is the number one debate we've been fielding. You talked a lot about how Ignite has improved your capabilities around M&A execution. I was just wondering if you could elaborate on that? That's number one. And then number two is just from a product area. I was curious your take on diagnostic assets. You have a unique position with Dako that seems to be doing pretty well. Just where does that -- like the IVD market stack up on your pecking order as kind of an industry of interest?
+
+**Padraig McDonnell:** Yes, Adam, maybe you can talk about Ignite and what we're seeing on the integration capability side, and I'll take the second one.
+
+**Adam Elinoff:** Sure. So there's a couple of pieces to why Ignite gives us the confidence that we'll be able to integrate an asset effectively. If you look at what the Ignite program is, it's really about a management system and how do you bring a bunch of different functions together to execute on a project in an efficient way. And that's exactly what an integration is. As you -- and you think about managing tariffs, that's a cross-functional activity where you need people moving in coordination and to achieve an outcome, that's what an integration is. So that would be the first point I'd make is just running through the Ignite program and using the Ignite system that we've now implemented, it gives us confidence we can execute integration. The other piece I'd point out is BIOVECTRA is we've leveraged that capability to integrate BIOVECTRA into our network. And so that's another proof point to our readiness to integrate the right asset.
+
+**Padraig McDonnell:** Yes. I think Adam talked about our capital allocation philosophy. I won't go back over that one. But we're focused on increasing our service and recurring revenue mix. I think we've been very clear around that. When you see software and automation also content on systems, et cetera. And we have many high-growth adjacent markets where we would have examples in all of that. Specifically about diagnostics is one of our businesses. That's not excluded, of course, but it's a very durable market. We have a 7% growth in Q1 and pathology is a mid-single-digit grower as we've seen over time with a lot of long-term growth drivers. So it's an area where we will continue to look in all those spaces. But again, where do we have a right to win. Those are linked with the strategy within that segment. Does it increase our recurring revenue? That's very important to us as we go forward. And of course, then we have the Ignite Operating System to allow us to integrate it very quickly as well.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 24
+}
+---
+**Operator:** Your next question comes from the line of Puneet Souda with Leerink Partners.
+@block
+{
+    "block_id": 25,
+    "block_type": "qa",
+    "qa_thread_id": "9",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "CDMO capacity ramp & biotech funding inflection",
+            "highlights": [
+                {
+                    "sentiment": 0.7,
+                    "text": "We have a very strong order backlog, and we're confident in the FY '26 outlook continuing to ramp... we're booked out for '26, and now we're booking into '27 with larger commercial batches."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "at steady state, the specialty CDMO business will return above our operating margin -- above the corporate operating margin. So it's a good business to be in."
+                },
+                {
+                    "sentiment": -0.2,
+                    "text": "while we have seen the capital market profile improving, we have yet to see a meaningful uptick in the small and mid-cap investments."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "total biopharma financing rose about $11 billion, that's a 2-year high."
+                },
+                {
+                    "sentiment": 0.4,
+                    "text": "We're extremely well placed with our tools. If you look at the Pro iQ LC/MS on that side, also on our Infinity III."
+                }
+            ]
+        }
+    ]
+}
+---
+**Puneet Souda:** First one, again, GLP-1 growth there is strong, but my question is more on the utilization on the oligo side and the NASD side. Any update on -- to the full utilization of Train C, which I think is anticipated in 2027. The question is really around the margin impact in light of this utilization, where it stands today, how it ramps up? And how should we think about the commercial batches versus the early-stage pipeline work that you're seeing?
+
+**Padraig McDonnell:** Yes. I'll start off, and I'll hand it over to Adam for some more color. We have a very strong order backlog, and we're confident in the FY '26 outlook continuing to ramp. Of course, you have month-to-month variances, but we have Train C and D coming online. I have to say we're delighted to have that capacity coming online where it is because we're booked out for '26, and now we're booking into '27 with larger commercial batches. So it's at the right time. But Adam, do you want to give more color on the cadence?
+
+**Adam Elinoff:** Yes. So thanks for the question. And I think at steady state, the specialty CDMO business will return above our operating margin -- above the corporate operating margin. So it's a good business to be in. Specific to 2027, Train C and Train D will be ramping through the year. And so there will be a negative margin impact. However, we'll offset that through other activities within the business. Mainly through Ignite.
+
+**Puneet Souda:** I see. Okay. That's helpful. And then just a follow-up on -- you made a comment about the small biotech capital raises and capitalization is driving growth. Just as you see that across the business, just wondering maybe if you can double-click and where are you seeing that? Is that more on the LC/MS instrumentation side cell analysis? Or is it more on the CDMO side of the business, where you're seeing the uptick from the emerging and small biotechs?
+
+**Adam Elinoff:** So let me -- I think I just need to clarify because it was said in the context of what would be the upside to the forecast. So it was really set around, hey, if we see a meaningful uptick in the small and mid-cap biotech when we would start to see upside to our forecast. So while we have seen the capital market profile improving, we have yet to see a meaningful uptick in the small and mid-cap investments.
+
+**Padraig McDonnell:** Yes. If you look at small and medium-sized biotech, we have a relatively small exposure, but we're actually encouraged by improving biotech funding and increased M&A. You see that a lot. If you look at the macros in January, total biopharma financing rose about $11 billion, that's a 2-year high. So we watch that. You have the patent cliff that's looming, of course, with heightened biopharma focus on M&A. And I think '25 is one of the strongest years in M&A for pharma, which, of course, I think about $240 billion. I think it's too early to cause an inflection on it. And there's a lag, I think, between improving funding environment and customer spending. But we're extremely well placed with our tools. If you look at the Pro iQ LC/MS on that side, also on our Infinity III. And of course, we'll see a recovery in our cell analysis business for those two as we go forward on it. So that's the way I would say that it's really a relatively small exposure for us, but we're really encouraged by the improving funding environment.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 26
+}
+---
+**Operator:** Your next question comes from the line of Brandon Couillard with Wells Fargo.
+@block
+{
+    "block_id": 27,
+    "block_type": "qa",
+    "qa_thread_id": "10",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "China market resilience & academia softness",
+            "highlights": [
+                {
+                    "sentiment": 0.6,
+                    "text": "we were very pleased with our 6% growth. We're better than expected."
+                },
+                {
+                    "sentiment": 0.5,
+                    "text": "we expect China to grow mid- to high single digits over the long term. Not the double-digit rates we saw 10 years ago, but mid- to high single digits."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "we're optimistic about China. We have the largest installed base, look at the pace of innovation in life science and the applied markets that supports demand for instruments and our solutions is very strong."
+                },
+                {
+                    "sentiment": -0.2,
+                    "text": "the softness we've been seeing is really primarily in the Americas."
+                },
+                {
+                    "sentiment": 0.3,
+                    "text": "The NIH budget came in, in line with flat to slightly up. The 15% cap on overhead research cost was blocked. That said... we're still seeing a little bit of hesitancy in our customers"
+                }
+            ]
+        }
+    ]
+}
+---
+**Brandon Couillard:** The 6% growth in China, was that all stimulus related and would be helpful if you can just touch on a couple of the end markets there. Curious if you're seeing any of them turn more positively or if it's really just still status quo?
+
+**Padraig McDonnell:** Yes. I mean we were very pleased with our 6% growth. We're better than expected. If you look at them compared to peers also very expected. And that's -- there was a slight bit of more spending before Lunar New Year, but not too much. And I think we saw an outside -- last year, we saw a very strong [ GACC ] stimulus business. We saw a small one this year. We won about 30% of that. And I think as we go through the year, we expect it to be a $300 million quarter business on it. But if you look at, I think, overall in the business, we're under-indexed, DX and pharma. We are over-indexed to the applied markets and we see continued strength on that side. So we expect China to grow mid- to high single digits over the long term. Not the double-digit rates we saw 10 years ago, but mid- to high single digits. And our track record, how our ability to manufacturing in China and our commercial teams is very close to the customers is really important. And of course, Adam talked about the larger stimulus that's looming towards the end of the year. We're not counting that in our guide. But if that comes in, it's going to be significantly more than the [ GACC ] stimulus, and we expect an outside win in it. But to be honest, if you look at the -- we look at very -- we're optimistic about China. We have the largest installed base, look at the pace of innovation in life science and the applied markets that supports demand for instruments and our solutions is very strong. And if you look at the China 15th, 5-year plan, whether it's rapid application on AI, health care, green sustainable developments and new regulations for pollutants like PFAS. We're right in the sweet spot in terms of those priorities. So we feel very good about China.
+
+**Brandon Couillard:** That's helpful. And then, Adam, it'd be great to get some color on the AMG markets by region. I think Simon said Europe was pretty solid. So just curious where you're seeing the weakness visits all in the Americas? Any color would be helpful by region.
+
+**Adam Elinoff:** Yes. So the softness we've been seeing is really primarily in the Americas. And I guess there's reason to be optimistic. The NIH budget came in, in line with flat to slightly up. The 15% cap on overhead research cost was blocked. That said, it goes back to what Simon talked about, which is we're still seeing a little bit of hesitancy in our customers to make bigger investments as they're really focused on operating their labs.
+
+**Simon May:** And just to clarify the Europe comment, that was a forward-looking comment that we envision more stability in Europe than in the Americas with academic and government, and cautious optimism around incremental improvement. That was a forward-looking statement.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 28
+}
+---
+**Operator:** Your next question comes from the line of Casey Woodring with JPMorgan.
+@block
+{
+    "block_id": 29,
+    "block_type": "qa",
+    "qa_thread_id": "11",
+    "enrichments": [
+        {
+            "type": "highlight",
+            "topic": "LC/MS product cycle & enterprise services flywheel",
+            "highlights": [
+                {
+                    "sentiment": 0.7,
+                    "text": "on the enterprise services side, it is a really important flywheel for the future because we're really -- fully working with customers under lab management and productivity."
+                },
+                {
+                    "sentiment": 0.7,
+                    "text": "we see in accounts where we do have enterprise service agreement, we have a higher consumables attach rate. We have a higher services attach rate."
+                },
+                {
+                    "sentiment": 0.7,
+                    "text": "we saw high single-digit growth in the quarter, particular strength in China and APAC... very strong performance in Infinity III. Customers continue to love it."
+                },
+                {
+                    "sentiment": 0.8,
+                    "text": "we were very pleased with Pro iQ with the 40% growth, really exceptional adoption there."
+                },
+                {
+                    "sentiment": 0.6,
+                    "text": "the relationships that we're building, they compound. They compound from a growth perspective, but they also compound from insights that we get from customers"
+                }
+            ]
+        }
+    ]
+}
+---
+**Casey Woodring:** I'll ask my two upfront. The first is just on LC and LC/MS pacing over the course of the year. LC grew high singles in 1Q. Can you just talk about what LC/MS grew in the quarter and walk through the growth phasing for LC and LC/MS over the course of the year? And then secondly, Padraig, you called out the three marquee enterprise service wins in ACG, and you talked a little bit about it in your script. Can you maybe just elaborate on what the financial impact could look like from those contracts and how we should think about the impact to the model and how those ramp over time?
+
+**Padraig McDonnell:** Yes. Let me talk about the enterprise services, and I'll comment then on the LC/MS. I think on the enterprise services side, it is a really important flywheel for the future because we're really -- fully working with customers under lab management and productivity. You can imagine the insights we get off replacement cycle through that and how do we move forward on it. So it's not just about the services. It's about the consumables and it's about the instrument replacements that we can go going forward on it. We've had a significant placement in competitive accounts. We're kind of unique in how we're doing that in the market, and we're seeing that as a flywheel to continue going forward. And of course, we see in accounts where we do have enterprise service agreement, we have a higher consumables attach rate. We have a higher services attach rate. And actually, we have an early warning system around replacement cycles that we have early conversations about. On the LC side of things, I think, it's been a steady pace, really good quarter. And I think on the LC/MS side, I don't know if you...
+
+**Simon May:** Yes. Well, just to reiterate on LC, we saw high single-digit growth in the quarter, particular strength in China and APAC. And as we've mentioned already, very strong performance in Infinity III. Customers continue to love it, and I still think we're relatively early mid on the replacement cycle there. Win loss rates continue to be positive, notable share gains based on the industry data, and we're now seeing additional tailwind there with the Altura columns. On the LC/MS side, we were in line with expectations in the first quarter. Coming off a tough sequential and year-over-year compare, it has to be said. But again, we were very pleased with Pro iQ with the 40% growth, really exceptional adoption there. And in LC/MS, similar story with respect to win loss rates and the industry data, which signifies some notable share gains. And then beyond the Pro iQ, which is off to a very strong start, we're also very encouraged by our broader LC/MS innovation pipeline.
+
+**Padraig McDonnell:** Yes. Just going back to the enterprise services part. I just want to bring in Angelica because she's been very close to some of these marquee wins under the growth trajectory and what you're seeing with the customers.
+
+**Angelica Riemann:** Thanks, Padraig, and thanks for the question, Casey. I think we're very excited about the enterprise business and the opportunity that unlocks. I think Padraig used the word flywheel earlier. And when you think about it, it allows us to really embed our service experts into the accounts, and they're looking at managing assets across the laboratory. So not only does it give us the opportunity to help customers with their lab operations and keep their labs up and running and producing those scientific results. It gives us visibility and access more broadly in these laboratory environments. So that we're not only looking at our own replacement cycles, but we're also looking at competitive displacement opportunities. We're looking for incremental wallet share opportunities. And over the course of time, the relationships that we're building, they compound. They compound from a growth perspective, but they also compound from insights that we get from customers and how we bring that back into the innovation muscle that we have here at Agilent, and how we can continually grow, evolve and continue to serve our customers on all different levels, whether it's lab operations, it's scientific outcomes or its ongoing value over time.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 30
+}
+---
+**Operator:** Your final question comes from the line of Evie Koslosky with Goldman Sachs. [Operator Instructions]
+@block
+{
+    "block_id": 31,
+    "block_type": "qa",
+    "qa_thread_id": "11"
+}
+---
+**Tejas Savant:** Operator, if Evie is not there, I think we can leave it there. It's all the time we have for this afternoon, and thank you to everyone for joining us. We look forward to speaking with you soon.
+@block
+{
+    "block_type": "operator_comment",
+    "block_id": 32
+}
+---
+**Operator:** This concludes today's call. Thank you for attending. You may now disconnect.`,
+  "examples/notebook.smd": `@document
+{
+    "document_id": "research-aapl-2026",
+    "schema_version": "0.2",
+    "type": "notebook",
+    "title": "AAPL Research Notes — 2026",
+    "created": "2026-01-01",
+    "meta": {
+        "ticker": "AAPL",
+        "coverage": "long-term research",
+        "analyst": "internal"
+    }
+}
+---
+@block
+{
+    "block_id": "day-2026-01-15",
+    "type": "entry",
+    "created": "2026-01-15",
+    "tags": ["valuation", "dcf", "initiation"],
+    "meta": {
+        "mood": "bullish",
+        "sources": ["Q1 filing", "Bloomberg terminal"]
+    }
+}
+---
+Initiated coverage on AAPL today.
+
+Key assumptions for DCF:
+- WACC: 9.2% (risk-free rate dropped 30bp since last quarter)
+- Terminal growth: 3.0%
+- FCF margin: 28% (conservative vs 5yr avg of 30%)
+- Revenue CAGR (3yr): 7%
+
+Fair value: **$245** vs current $198 → 24% upside.
+
+\`\`\`thought
+The Services multiple expansion story is real. If Services reaches 35% of
+revenue by 2028 (vs 28% today), the sum-of-parts valuation could reach $280.
+Key risk: regulatory action on App Store margins.
+\`\`\`
+
+**TODO:** Review Services revenue breakdown when Q2 filing is released.
+
+@block
+{
+    "block_id": "day-2026-03-22",
+    "type": "entry",
+    "created": "2026-03-22",
+    "tags": ["ai", "capex", "valuation"],
+    "meta": {
+        "mood": "neutral",
+        "sources": ["earnings call", "press release"]
+    }
+}
+---
+AI capex announcement: $15B for 2026 — well above consensus of $10B.
+
+\`\`\`thought
+This changes the FCF picture significantly. $15B capex vs prior $8B means
+~$7B incremental spend. FCF drops from ~$95B to ~$88B in my model.
+
+At $88B FCF, fair value drops to ~$225. But if AI capex drives revenue
+acceleration (say 9% CAGR instead of 7%), we're back to $260.
+
+Key variable: revenue elasticity relative to capex. Need to track.
+\`\`\`
+
+**TODO:** Update DCF model for new capex figures. Sensitivity analysis needed.
+
+@block
+{
+    "block_id": "day-2026-04-10",
+    "type": "entry",
+    "created": "2026-04-10",
+    "tags": ["ai", "competition", "nvda", "amd"],
+    "meta": {
+        "mood": "curious",
+        "sources": ["TSMC investor day", "Semianalysis blog"]
+    }
+}
+---
+TSMC investor day notes:
+- 3nm yields now above plan (85% vs expected 80%)
+- CoWoS capacity doubling for 2026
+- Apple is still the lead customer, but NVIDIA demand is accelerating
+
+NVIDIA announced Blackwell Ultra at GTC. AMD MI350 specs leaked — 2.4 TB/s memory bandwidth.
+
+\`\`\`thought
+Apple's custom silicon strategy makes sense in the context of the AI capex
+announcement. If they can match NVDA inference performance at lower TCO,
+the data center expansion could actually drive meaningful Services margin
+improvement. This is underappreciated by the market.
+\`\`\`
+
+**Action Item:** Review AMD MI350 benchmarks when officially released. Compare inference perf/W against Apple's M4 Ultra for data center workloads.
+`
+};
+
+// ---- State ----
+let currentData = null;
+let currentTemplate = null;
+let currentRawText = '';
+let currentView = 'smd';
+
+// ---- Render ----
+function renderAll(data, rawText) {
+  currentData = data;
+  if (rawText !== undefined) currentRawText = rawText;
+  const { docHeader, blocks } = data;
+
+  // Show/hide toggle based on whether we have a loaded file vs template
+  const toggleGroup = document.getElementById('view-toggle-group');
+  if (currentTemplate === null && currentRawText) {
+    toggleGroup.style.display = '';
+  } else if (currentTemplate) {
+    toggleGroup.style.display = 'none';
+  } else {
+    toggleGroup.style.display = '';
+  }
+
+  document.getElementById('doc-title').textContent =
+    (docHeader && docHeader.meta && docHeader.meta.ticker
+      ? docHeader.source || (docHeader.company_name + ' ' + docHeader.fiscal_period + ' ' + docHeader.year + ' Earnings Call')
+      : docHeader && docHeader.title
+        ? docHeader.title
+        : docHeader && docHeader.company_name
+          ? docHeader.company_name + ' ' + docHeader.fiscal_period + ' ' + docHeader.year + ' Earnings Call'
+          : 'SMD Document');
+
+  const metaParts = [];
+  if (blocks.length) metaParts.push(`${blocks.length} blocks`);
+  if (docHeader && docHeader.type) metaParts.push(`type: ${docHeader.type}`);
+  document.getElementById('doc-meta').textContent = metaParts.join(' · ');
+
+  // 1. Capture tree: flatten each block header into {path, value, parent} leaves
+  const filterDefs = (docHeader && docHeader.filters) || [];
+  const styles = (docHeader && docHeader.styles) || [];
+  for (const block of blocks) {
+    capture_tree(block);
+  }
+
+  // 2. Fetch filters: extract tag values & assign _allTags to each block
+  const filterResult = fetch_filters(blocks, filterDefs);
+
+  // 3. Render filter chips grouped by label
+  const tagFilters = document.getElementById('tag-filters');
+  let html = '';
+  for (const grp of filterResult.groups) {
+    html += `<div class="filter-group-label">${esc(grp.label)}</div>`;
+    for (const v of grp.values) {
+      html += `<label class="filter-chip"><input type="checkbox" value="${esc(v)}"> ${esc(v)}</label>`;
+    }
+  }
+  tagFilters.innerHTML = html;
+
+  // 4. Run styles: match block-level & highlight styles against each block's tree
+  for (const block of blocks) {
+    block._styleResult = run_styles(block, styles);
+  }
+
+  // 5. Clear active filters & render blocks
+  document.getElementById('active-filters').innerHTML = '';
+  const container = document.getElementById('blocks-container');
+  container.innerHTML = blocks.map((b, i) => renderBlock(b, i)).join('');
+  initFilterChips();
+}
+
+// ============================================================
+// ---- Helpers: leaf value matching, color interpolation ----
+// ============================================================
+function leafValueMatches(leafValue, rule) {
+  const val = Number(leafValue);
+  const rv = Number(rule.value);
+  if (rule.fn === 'lte') return val <= rv;
+  if (rule.fn === 'gte') return val >= rv;
+  if (rule.fn === 'lt')  return val < rv;
+  if (rule.fn === 'gt')  return val > rv;
+  if (rule.fn === 'eq')  return String(leafValue) === String(rule.value);
+  return String(leafValue) === String(rule.value);
+}
+
+function shadeBetween(hexA, hexB, t) {
+  function parse(h) {
+    h = h.replace(/^#/, '');
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return [parseInt(h.substring(0,2),16), parseInt(h.substring(2,4),16), parseInt(h.substring(4,6),16)];
+  }
+  const a = parse(hexA), b = parse(hexB);
+  const r = Math.round(a[0] + (b[0]-a[0]) * t);
+  const g = Math.round(a[1] + (b[1]-a[1]) * t);
+  const bl = Math.round(a[2] + (b[2]-a[2]) * t);
+  const rHex = r.toString(16).padStart(2,'0');
+  const gHex = g.toString(16).padStart(2,'0');
+  const bHex = bl.toString(16).padStart(2,'0');
+  return `#${rHex}${gHex}${bHex}`;
+}
+
+// ============================================================
+// ---- Tree capture: flatten block header into path/value/parent leaves ----
+// ============================================================
+function capture_tree(block) {
+  block._leaves = flattenTree(block.header, '');
+}
+
+// ============================================================
+// ---- Style runner: match ALL styles against a block's flattened tree ----
+// Returns { blockStyle, highlightMap }
+//   blockStyle: first matching block-level style (or null)
+//   highlightMap: Map<highlightObject, matchedStyle>
+// ============================================================
+function run_styles(block, styles) {
+  const leaves = block._leaves;
+  let blockStyle = null;
+  const highlightMap = new Map();
+
+  for (const s of styles) {
+    // Skip highlight styles in block-level matching
+    const isHlStyle = s.target === 'highlight' && s.match && s.match.key.includes('[]');
+
+    if (isHlStyle) {
+      // Match this highlight style against all leaves whose parent is a highlight object
+      for (const leaf of leaves) {
+        if (leafMatchesPattern(leaf.path, s.match.key) && leafValueMatches(leaf.value, s.match)) {
+          highlightMap.set(leaf.parent, s);
+          break; // first match wins for this style
+        }
+      }
+    } else if (!blockStyle) {
+      // Block-level style: check if any leaf matches
+      const rule = s.match;
+      if (!rule) continue;
+      for (const leaf of leaves) {
+        if (leafMatchesPattern(leaf.path, rule.key) && leafValueMatches(leaf.value, rule)) {
+          blockStyle = s;
+          break;
+        }
+      }
+    }
+  }
+
+  return { blockStyle, highlightMap };
+}
+
+// Get the CSS background string for a block-level style
+function block_background(block, style) {
+  if (!style) return '';
+  if (style.background) {
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(style.background, op)};`;
+  }
+  if (style.background_shade && Array.isArray(style.background_shade) && style.background_shade.length === 2) {
+    // Find the leaf value for the shade interpolation
+    const leaf = block._leaves.find(l => leafMatchesPattern(l.path, style.match.key));
+    if (!leaf) return '';
+    const val = Number(leaf.value);
+    const rule = style.match;
+    let t = 0;
+    if (rule.fn === 'lte') t = 1 - (val / Number(rule.value));
+    else if (rule.fn === 'gte') t = (val - Number(rule.value)) / (1 - Number(rule.value));
+    else t = 0.5;
+    t = Math.max(0, Math.min(1, t));
+    const color = shadeBetween(style.background_shade[0], style.background_shade[1], t);
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(color, op)};`;
+  }
+  return '';
+}
+
+// Get the CSS background string for a highlight-level style + value
+function highlight_background(style, val) {
+  if (!style) return '';
+  if (style.background) {
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(style.background, op)};`;
+  }
+  if (style.background_shade && Array.isArray(style.background_shade) && style.background_shade.length === 2) {
+    const rule = style.match;
+    let t = 0;
+    if (rule.fn === 'lt')  t = Math.abs(Number(val));
+    else if (rule.fn === 'gt') t = Number(val);
+    else if (rule.fn === 'lte') t = 1 - (Number(val) / Number(rule.value));
+    else if (rule.fn === 'gte') t = (Number(val) - Number(rule.value)) / (1 - Number(rule.value));
+    t = Math.max(0, Math.min(1, t));
+    const color = shadeBetween(style.background_shade[0], style.background_shade[1], t);
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(color, op)};`;
+  }
+  return '';
+}
+
+// ============================================================
+// ---- Filter extraction: collect filter tags from all blocks ----
+// Returns { groups, blockTags }
+//   groups: [{key, label, values: [...]}]
+//   blockTags: WeakMap-like (uses block._allTags)
+// ============================================================
+function fetch_filters(blocks, filterDefs) {
+  const groups = [];
+  for (const fd of filterDefs) {
+    const vals = [...new Set(blocks.flatMap(b => tagValuesFromTree(b._leaves, fd.key)))].sort();
+    if (vals.length > 0) {
+      groups.push({ key: fd.key, label: fd.label, values: vals });
+    }
+  }
+  // Assign tags to each block
+  for (const block of blocks) {
+    block._allTags = collectBlockFilterTags(block._leaves, filterDefs);
+  }
+  return { groups };
+}
+
+function renderBlock(block, index) {
+  const { blockStyle, highlightMap } = block._styleResult;
+
+  // Sentiment (for background fallback)
+  const sentiment = block.sentiment;
+  let sentimentScore = null;
+  if (Array.isArray(sentiment) && sentiment.length > 0) {
+    sentimentScore = sentiment[0].score;
+  }
+
+  let bgStyle = block_background(block, blockStyle);
+  if (!bgStyle && sentimentScore !== null) {
+    bgStyle = `background:${sentimentBg(sentimentScore)};`;
+  }
+
+  // Highlights: split into positioned (inline) and unpositioned (box)
+  const allHighlights = block.highlights || [];
+  const positionedHighlights = allHighlights.filter(
+    h => h.start_char !== undefined && h.end_char !== undefined && h.start_char < h.end_char
+  );
+  const unpositionedHighlights = allHighlights.filter(
+    h => h.start_char === undefined || h.end_char === undefined || h.start_char >= h.end_char
+  );
+  const highlightsHtml = unpositionedHighlights.length ? `
+    <div class="highlights-box">
+      ${unpositionedHighlights.map(h => {
+        const hScore = h.sentiment;
+        const color = hScore !== null ? sentimentColor(hScore) : '#e8c840';
+        const hStyle = highlightMap.get(h);
+        const hBg = highlight_background(hStyle, hScore);
+        const tooltipParts = [];
+        if (h.topic) tooltipParts.push(h.topic);
+        if (hScore !== null) tooltipParts.push(`sentiment: ${hScore.toFixed(2)}`);
+        const tooltip = tooltipParts.join(' · ');
+        return `<div class="highlight-item" style="${hBg}" title="${escAttr(tooltip)}">
+          <span class="highlight-bar" style="background:${color};${hBg ? 'border-radius:3px;' : ''}"></span>
+          ${esc(h.text || h.excerpt || '')}
+          ${hScore !== null ? `<span style="font-size:10px;color:${color};margin-left:auto;font-weight:600;">${hScore.toFixed(2)}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Summary
+  const enr = block.enrichment;
+  const summaryHtml = enr.summary
+    ? `<div class="summary-box">${esc(enr.summary)}</div>` : '';
+
+  // Body with inline highlights
+  const bodyHtml = block.body_text
+    ? renderBodyWithHighlights(block.body_text, allHighlights, highlightMap)
+    : '';
+
+  // Key takeaways
+  const takeaways = block.key_takeaways || [];
+  const takeawaysHtml = takeaways.length ? `
+    <div class="takeaways-box">
+      <strong>Key Takeaways</strong>
+      ${takeaways.map(kt => {
+        const text = typeof kt === 'string' ? kt : (kt.text || '');
+        return `<div class="takeaway">→ ${esc(text)}</div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Segments (thought, action_item, etc.)
+  const segmentsHtml = block.segments
+    .filter(s => s.type !== 'markdown')
+    .map(s => `
+      <div class="segment segment-${esc(s.type)}">
+        <span class="segment-label">${esc(s.type)}</span>
+        <pre>${esc(s.content)}</pre>
+      </div>`).join('');
+
+  return `
+    <div class="smd-block" id="block-${esc(block.block_id)}"
+         data-block-id="${esc(block.block_id)}"
+         data-tags='${JSON.stringify(block._allTags || [])}'
+         style="${bgStyle}">
+      ${summaryHtml}
+      ${highlightsHtml}
+      ${bodyHtml}
+      ${takeawaysHtml}
+      ${segmentsHtml}
+    </div>`;
+}
+
+// ---- Filtering ----
+const tagScrollState = {};  // tag -> current scroll index
+
+function getVisibleBlocks() {
+  return Array.from(document.querySelectorAll('.smd-block:not(.hidden)'));
+}
+
+function scrollToBlock(block) {
+  if (!block) return;
+  block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Brief pulse highlight
+  block.classList.add('pulse');
+  setTimeout(() => block.classList.remove('pulse'), 1200);
+}
+
+function scrollToNextTagBlock(tag) {
+  const visible = getVisibleBlocks().filter(b => {
+    const tags = JSON.parse(b.dataset.tags || '[]');
+    return tags.includes(tag);
+  });
+  if (visible.length === 0) return;
+
+  let idx = tagScrollState[tag] || 0;
+  if (idx >= visible.length) idx = 0;
+  scrollToBlock(visible[idx]);
+  tagScrollState[tag] = idx + 1;
+  if (tagScrollState[tag] >= visible.length) tagScrollState[tag] = 0;
+}
+
+function applyFilters() {
+  const checked = document.querySelectorAll('#tag-filters input:checked');
+  const activeTags = Array.from(checked).map(c => c.value);
+
+  // Reset scroll state when filters change
+  for (const k of Object.keys(tagScrollState)) {
+    if (!activeTags.includes(k)) delete tagScrollState[k];
+  }
+
+  const afDiv = document.getElementById('active-filters');
+  afDiv.innerHTML = activeTags.length === 0 ? '' : activeTags.map(t =>
+    `<span class="active-filter" onclick="removeFilter('${esc(t)}')">${esc(t)} &times;</span>`
+  ).join('');
+
+  const blocks = document.querySelectorAll('.smd-block');
+  let visible = 0;
+  blocks.forEach(block => {
+    const blockTags = JSON.parse(block.dataset.tags || '[]');
+    const match = activeTags.length === 0 || activeTags.some(t => blockTags.includes(t));
+    block.classList.toggle('hidden', !match);
+    if (match) visible++;
+  });
+
+  // Handle empty state
+  let nr = document.getElementById('no-results');
+  if (visible === 0 && activeTags.length > 0) {
+    if (!nr) {
+      nr = document.createElement('div');
+      nr.id = 'no-results';
+      nr.className = 'no-results';
+      nr.textContent = 'No blocks match the selected tags.';
+      document.getElementById('blocks-container').appendChild(nr);
+    }
+    nr.style.display = '';
+  } else if (nr) {
+    nr.style.display = 'none';
+  }
+}
+
+function toggleTag(tag) {
+  const chip = document.querySelector(`#tag-filters input[value="${tag}"]`);
+  if (chip) {
+    const wasChecked = chip.checked;
+    chip.checked = !chip.checked;
+    applyFilters();
+    // If turning on (clicking a tag badge), scroll to next match
+    if (!wasChecked) {
+      scrollToNextTagBlock(tag);
+    }
+  }
+}
+
+function removeFilter(tag) {
+  const chip = document.querySelector(`#tag-filters input[value="${tag}"]`);
+  if (chip) chip.checked = false;
+  delete tagScrollState[tag];
+  applyFilters();
+}
+
+function clearFilters() {
+  document.querySelectorAll('#tag-filters input').forEach(c => c.checked = false);
+  for (const k of Object.keys(tagScrollState)) delete tagScrollState[k];
+  applyFilters();
+}
+
+// Attach scroll-to behavior to filter chips
+function initFilterChips() {
+  const chips = document.querySelectorAll('#tag-filters .filter-chip');
+  chips.forEach(chip => {
+    // Remove old handler by replacing with clone
+    const clone = chip.cloneNode(true);
+    chip.parentNode.replaceChild(clone, chip);
+    const input = clone.querySelector('input');
+    clone.addEventListener('click', (e) => {
+      // Don't intercept clicks on the input itself
+      if (e.target === input) return;
+      const wasChecked = input.checked;
+      // toggle
+      input.checked = !input.checked;
+      applyFilters();
+      // Scroll to next match
+      if (!wasChecked && input.checked) {
+        scrollToNextTagBlock(input.value);
+      } else if (wasChecked && !input.checked) {
+        delete tagScrollState[input.value];
+      } else if (input.checked) {
+        // Already checked, just scroll to next
+        scrollToNextTagBlock(input.value);
+      }
+    });
+  });
+}
+
+// ---- File loading ----
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const data = parseSMD(text);
+    if (!data.blocks.length) {
+      alert('No valid @block entities found in ' + file.name);
+      return;
+    }
+    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+    currentTemplate = null;
+    document.getElementById('path-input').value = file.name;
+    setView('smd');
+    renderAll(data, text);
+  };
+  reader.readAsText(file);
+}
+
+function loadPath(pathOverride) {
+  const path = pathOverride || document.getElementById('path-input').value.trim();
+  if (!path) return;
+
+  // Check embedded content first (no server needed)
+  if (EMBEDDED[path]) {
+    if (pathOverride) document.getElementById('path-input').value = pathOverride;
+    const text = EMBEDDED[path];
+    const data = parseSMD(text);
+    if (!data.blocks.length) {
+      alert('No valid @block entities found in ' + path);
+      return;
+    }
+    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+    const exampleBtns = document.querySelectorAll('.template-btn');
+    exampleBtns.forEach(b => {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(path)) {
+        b.classList.add('active');
+      }
+    });
+    currentTemplate = null;
+    setView('smd');
+    renderAll(data, text);
+    return;
+  }
+
+  // Fall back to fetch (requires HTTP server)
+  if (pathOverride) document.getElementById('path-input').value = pathOverride;
+  fetch(path)
+    .then(r => { if (!r.ok) throw new Error(r.status + ' ' + r.statusText); return r.text(); })
+    .then(text => {
+      const data = parseSMD(text);
+      if (!data.blocks.length) {
+        alert('No valid @block entities found in ' + path);
+        return;
+      }
+      document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+      const exampleBtns = document.querySelectorAll('.template-btn');
+      exampleBtns.forEach(b => {
+        if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(path)) {
+          b.classList.add('active');
+        }
+      });
+      currentTemplate = null;
+      setView('smd');
+      renderAll(data, text);
+    })
+    .catch(err => {
+      alert('Failed to load: ' + err.message + '\n\nFor local files, make sure the path matches an embedded example.\nTo load other files, run a local server:\n  python3 -m http.server 8080\nThen open http://localhost:8080/viewer.html');
+    });
+}
+
+// ---- Paste import ----
+function loadPasted() {
+  const text = document.getElementById('paste-input').value.trim();
+  if (!text) return;
+  const data = parseSMD(text);
+  if (!data.blocks.length) {
+    alert('No valid @block entities found. Check your SMD syntax.');
+    return;
+  }
+  document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+  currentTemplate = null;
+  setView('smd');
+  renderAll(data, text);
+}
+
+// ---- View toggle (Raw / SMD) ----
+function setView(view) {
+  currentView = view;
+  const blocksContainer = document.getElementById('blocks-container');
+  const rawView = document.getElementById('raw-view');
+  const btnSmd = document.getElementById('btn-view-smd');
+  const btnRaw = document.getElementById('btn-view-raw');
+
+  if (view === 'raw') {
+    blocksContainer.style.display = 'none';
+    rawView.style.display = '';
+    rawView.textContent = currentRawText;
+    btnSmd.classList.remove('active');
+    btnRaw.classList.add('active');
+  } else {
+    blocksContainer.style.display = '';
+    rawView.style.display = 'none';
+    btnSmd.classList.add('active');
+    btnRaw.classList.remove('active');
+  }
+}
+
+document.getElementById('btn-view-smd').addEventListener('click', () => setView('smd'));
+document.getElementById('btn-view-raw').addEventListener('click', () => setView('raw'));
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  loadPath('examples/Agilent_Transcript_1Q_2026.smd');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+@document
+{
+    "document_id": "research-aapl-2026",
+    "schema_version": "0.2",
+    "type": "notebook",
+    "title": "AAPL Research Notes — 2026",
+    "created": "2026-01-01",
+    "meta": {
+        "ticker": "AAPL",
+        "coverage": "long-term research",
+        "analyst": "internal"
+    }
+}
+---
+@block
+{
+    "block_id": "day-2026-01-15",
+    "type": "entry",
+    "created": "2026-01-15",
+    "tags": ["valuation", "dcf", "initiation"],
+    "meta": {
+        "mood": "bullish",
+        "sources": ["Q1 filing", "Bloomberg terminal"]
+    }
+}
+---
+Initiated coverage on AAPL today.
+
+Key assumptions for DCF:
+- WACC: 9.2% (risk-free rate dropped 30bp since last quarter)
+- Terminal growth: 3.0%
+- FCF margin: 28% (conservative vs 5yr avg of 30%)
+- Revenue CAGR (3yr): 7%
+
+Fair value: **$245** vs current $198 → 24% upside.
+
+```thought
+The Services multiple expansion story is real. If Services reaches 35% of
+revenue by 2028 (vs 28% today), the sum-of-parts valuation could reach $280.
+Key risk: regulatory action on App Store margins.
+```
+
+**TODO:** Review Services revenue breakdown when Q2 filing is released.
+
+@block
+{
+    "block_id": "day-2026-03-22",
+    "type": "entry",
+    "created": "2026-03-22",
+    "tags": ["ai", "capex", "valuation"],
+    "meta": {
+        "mood": "neutral",
+        "sources": ["earnings call", "press release"]
+    }
+}
+---
+AI capex announcement: $15B for 2026 — well above consensus of $10B.
+
+```thought
+This changes the FCF picture significantly. $15B capex vs prior $8B means
+~$7B incremental spend. FCF drops from ~$95B to ~$88B in my model.
+
+At $88B FCF, fair value drops to ~$225. But if AI capex drives revenue
+acceleration (say 9% CAGR instead of 7%), we're back to $260.
+
+Key variable: revenue elasticity relative to capex. Need to track.
+```
+
+**TODO:** Update DCF model for new capex figures. Sensitivity analysis needed.
+
+@block
+{
+    "block_id": "day-2026-04-10",
+    "type": "entry",
+    "created": "2026-04-10",
+    "tags": ["ai", "competition", "nvda", "amd"],
+    "meta": {
+        "mood": "curious",
+        "sources": ["TSMC investor day", "Semianalysis blog"]
+    }
+}
+---
+TSMC investor day notes:
+- 3nm yields now above plan (85% vs expected 80%)
+- CoWoS capacity doubling for 2026
+- Apple is still the lead customer, but NVIDIA demand is accelerating
+
+NVIDIA announced Blackwell Ultra at GTC. AMD MI350 specs leaked — 2.4 TB/s memory bandwidth.
+
+```thought
+Apple's custom silicon strategy makes sense in the context of the AI capex
+announcement. If they can match NVDA inference performance at lower TCO,
+the data center expansion could actually drive meaningful Services margin
+improvement. This is underappreciated by the market.
+```
+
+**Action Item:** Review AMD MI350 benchmarks when officially released. Compare inference perf/W against Apple's M4 Ultra for data center workloads.
