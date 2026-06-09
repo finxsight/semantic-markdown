@@ -218,7 +218,7 @@ smd-mcp            — start the MCP server for LLM integration
 
 ### Viewer
 
-`viewer.html` — a standalone browser viewer with embedded JS SMD parser. Features:
+`index.html` — a standalone browser viewer with embedded JS SMD parser. Features:
 
 - Template picker sidebar (transcript, notebook, corpus)
 - Tag-based filtering (clickable tag chips)
@@ -229,7 +229,7 @@ smd-mcp            — start the MCP server for LLM integration
 
 ```bash
 python -m http.server 8080
-# Open http://localhost:8080/viewer.html
+# Open http://localhost:8080
 ```
 
 ### MCP Server (Agent Harness)
@@ -293,14 +293,14 @@ v0.2 — Draft specification with reference Python implementation and browser vi
 - 🐍 [Parser](src/semantic_markdown/parser.py)
 - 🔍 [Indexer](src/semantic_markdown/indexer.py)
 - 🤖 [Agent Harness](src/semantic_markdown/harness.py)
-- 🖥️ [Viewer](viewer.html)
+- 🖥️ [Viewer](index.html)
 - 📚 [Examples](examples/)
 
 ### Try the Viewer
 
 **Online**: Enable GitHub Pages in [repo settings](https://github.com/finxsight/semantic-markdown/settings/pages) → deploy from `master` branch, `/ (root)` → visit `finxsight.github.io/semantic-markdown`
 
-**Local**: `python -m http.server 8080` → open `http://localhost:8080/viewer.html`
+**Local**: `python -m http.server 8080` → open `http://localhost:8080`
 
 The viewer loads `.smd` files from `examples/` and renders them with sentiment coloring, block-type filters, tag navigation, and topic highlighting.
 
