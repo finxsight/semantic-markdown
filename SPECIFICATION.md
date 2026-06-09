@@ -1,9 +1,9 @@
-# Semantic Markdown (SMD) — Specification v0.2
+# Semantic Markdown (SMD) — Specification v0.0
 
 > A block-addressable document format for human-agent collaboration, with semantic overlays and emergent structure.
 
-**Status:** Draft  
-**Last updated:** 2026-06-07  
+**Status:** Active Research  
+**Last updated:** 2026-06-09  
 **Extension:** `.smd`  
 **MIME:** `text/vnd.semantic-markdown` (pending IANA registration)
 

@@ -2,8 +2,9 @@
 
 <div align="center">
 
-[![Spec v0.2](https://img.shields.io/badge/spec-v0.2-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
-[![Status: Draft](https://img.shields.io/badge/status-draft-ff6b35?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![Spec v0.0](https://img.shields.io/badge/spec-v0.0-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![Status: Active Research](https://img.shields.io/badge/status-active_research-4caf50?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![arXiv](https://img.shields.io/badge/arXiv-coming_soon-b31b1b?style=for-the-badge&logo=arxiv&logoColor=white&labelColor=1a1a2e)](.)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e)](.)
 [![License](https://img.shields.io/badge/license-Apache_2.0-d22128?style=for-the-badge&labelColor=1a1a2e)](LICENSE)
 
@@ -383,7 +384,7 @@ But unlike each individually:
 
 ## Status
 
-v0.2 — Draft specification with reference Python implementation and browser viewer.
+v0.0 — Active research with reference Python implementation and browser viewer.
 
 - 📄 [Full Specification](SPECIFICATION.md)
 - 🐍 [Parser](src/semantic_markdown/parser.py)
