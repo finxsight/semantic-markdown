@@ -957,4 +957,4 @@ Fed signals continued tightening.
 
 ## 22. License
 
-This specification is released under the [MIT License](https://opensource.org/licenses/MIT).
+This specification is released under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).

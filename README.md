@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Spec v0.0](https://img.shields.io/badge/spec-v0.0-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![Spec v0.1](https://img.shields.io/badge/spec-v0.1-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
 [![Status: Active Research](https://img.shields.io/badge/status-active_research-4caf50?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
 [![arXiv](https://img.shields.io/badge/arXiv-coming_soon-b31b1b?style=for-the-badge&logo=arxiv&logoColor=white&labelColor=1a1a2e)](.)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e)](.)
