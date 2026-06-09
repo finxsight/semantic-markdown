@@ -13,8 +13,8 @@ import json
 import sys
 from pathlib import Path
 
-from .parser import parse_file, parse_smd
-from .errors import ParseError
+from .parser import parse_file, parse_smd, all_tags, tag_co_occurrence
+from .parser import ParseError
 
 
 def _serialize(doc):
@@ -63,7 +63,7 @@ def main():
         print(f"Document: {path.name if path.exists() else '<stdin>'}")
         print(f"  Entities: {len(doc.entities)}")
         print(f"  Blocks:   {len(doc.blocks)}")
-        print(f"  Tags:     {doc.all_tags()}")
+        print(f"  Tags:     {all_tags(doc)}")
         print()
 
         for block in doc.blocks:
@@ -79,8 +79,8 @@ def main():
             print(f"    {body_preview}")
             print()
 
-        print(f"Tag co-occurrence matrix ({len(doc.tag_co_occurrence())} tags):")
-        matrix = doc.tag_co_occurrence()
+        print(f"Tag co-occurrence matrix ({len(tag_co_occurrence(doc))} tags):")
+        matrix = tag_co_occurrence(doc)
         for tag, neighbors in sorted(matrix.items()):
             top = sorted(neighbors.items(), key=lambda x: -x[1])[:3]
             if top:

@@ -8,7 +8,10 @@ from pathlib import Path
 # Add src to path so tests can run standalone
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from semantic_markdown import parse_smd, ParseError, SMDDocument, SMDBlock
+from semantic_markdown import (
+    parse_smd, ParseError,
+    all_tags, filter_by_tag, filter_by_type, tag_co_occurrence,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -215,12 +218,12 @@ Finance content
 More AI
 """
     doc = parse_smd(text)
-    ai_blocks = doc.filter_by_tag("ai")
+    ai_blocks = filter_by_tag(doc, "ai")
     assert len(ai_blocks) == 2
     assert ai_blocks[0].block_id == "b-001"
     assert ai_blocks[1].block_id == "b-003"
 
-    finance_blocks = doc.filter_by_tag("finance")
+    finance_blocks = filter_by_tag(doc, "finance")
     assert len(finance_blocks) == 1
     assert finance_blocks[0].block_id == "b-002"
 
@@ -243,7 +246,7 @@ Q&A content
 Summary content
 """
     doc = parse_smd(text)
-    qa_blocks = doc.filter_by_type("qa")
+    qa_blocks = filter_by_type(doc, "qa")
     assert len(qa_blocks) == 1
     assert qa_blocks[0].block_id == "b-001"
 
@@ -266,7 +269,7 @@ First
 Second
 """
     doc = parse_smd(text)
-    tags = doc.all_tags()
+    tags = all_tags(doc)
     assert len(tags) == 3
     assert tags == ["ai", "ml", "finance"]  # order of first appearance
 
@@ -297,7 +300,7 @@ Second
 Third
 """
     doc = parse_smd(text)
-    matrix = doc.tag_co_occurrence()
+    matrix = tag_co_occurrence(doc)
     assert matrix["ai"]["ml"] == 1
     assert matrix["ai"]["python"] == 2
     assert matrix["finance"]["ml"] == 1

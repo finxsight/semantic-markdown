@@ -19,7 +19,7 @@ mcp = ["mcp>=1.0"]
 
 [project.scripts]
 smd = "semantic_markdown.__main__:main"
-smd-mcp = "semantic_markdown.mcp_server:main"
+smd-mcp = "semantic_markdown.harness:main"
 
 [project.urls]
 homepage = "https://github.com/your-org/semantic-markdown"

@@ -1,13 +1,16 @@
 """
 SMD Parser — reference implementation.
 
-Parses .smd text into SMDDocument / SMDBlock entities.
+Parses .smd text into lightweight namespace objects.
 
 Algorithm:
     1. Split input on lines starting with @document or @block
     2. For each raw entity, locate the first --- separator
     3. Parse the JSON header (text between @ line and ---)
     4. Parse the body into typed segments (markdown + fenced blocks)
+
+The SMD format is self-describing — every entity carries its JSON header
+plus raw body text.  No separate schema/model file is needed.
 """
 
 from __future__ import annotations
@@ -15,15 +18,49 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, List
 
-from .errors import (
-    DuplicateBlockIdError,
-    MalformedJsonError,
-    MissingSeparatorError,
-    ParseError,
-)
-from .models import BodySegment, SMDBlock, SMDDocument
+# ======================================================================
+# Parse exceptions
+# ======================================================================
+
+class ParseError(Exception):
+    """Raised when an SMD file cannot be parsed correctly."""
+
+    def __init__(self, message: str, line: int | None = None):
+        self.line = line
+        prefix = f"Line {line}: " if line is not None else ""
+        super().__init__(f"{prefix}{message}")
+
+
+class DuplicateBlockIdError(ParseError):
+    """Raised when two blocks in the same document share a block_id."""
+
+    def __init__(self, block_id: str, line: int | None = None):
+        self.block_id = block_id
+        super().__init__(f"Duplicate block_id: '{block_id}'", line=line)
+
+
+class MalformedJsonError(ParseError):
+    """Raised when a JSON header cannot be parsed."""
+
+    def __init__(self, raw: str, inner: str, line: int | None = None):
+        super().__init__(
+            f"Malformed JSON header: {inner}\n  Raw header: {raw[:120]}",
+            line=line,
+        )
+
+
+class MissingSeparatorError(ParseError):
+    """Raised when a @block or @document has no --- separator."""
+
+    def __init__(self, entity_type: str, block_id: str | None = None, line: int | None = None):
+        suffix = f" ({block_id=})" if block_id else ""
+        super().__init__(
+            f"@{entity_type} missing '---' separator{suffix}",
+            line=line,
+        )
 
 
 # Regex to match the start of an entity (@document or @block at line beginning)
@@ -36,19 +73,66 @@ _SEPARATOR = re.compile(r"\n---\n")
 _FENCED_BLOCK = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
-def parse_smd(text: str) -> SMDDocument:
+# ---------------------------------------------------------------------------
+# Factory helpers — lightweight namespaces, no class definitions needed
+# ---------------------------------------------------------------------------
+
+def _block(block_id: str, header: dict, raw_header: str,
+           segments: list, body_text: str) -> SimpleNamespace:
+    """Create a lightweight block namespace with pre-computed convenience attrs."""
+    sentiment = None
+    raw_sent = header.get("sentiment")
+    if isinstance(raw_sent, (int, float)):
+        sentiment = float(raw_sent)
+    return SimpleNamespace(
+        kind="block",
+        block_id=block_id,
+        header=header,
+        raw_header=raw_header,
+        segments=segments,
+        body_text=body_text,
+        tags=header.get("tags", []),
+        type=header.get("type") or header.get("block_type"),
+        sentiment=sentiment,
+    )
+
+
+def _document(header: dict | None = None,
+              raw_header: str = "") -> SimpleNamespace:
+    """Create a lightweight document namespace."""
+    return SimpleNamespace(
+        kind="document",
+        entities=[],
+        header=header or {},
+        raw_header=raw_header,
+    )
+
+
+def _finalize(doc: SimpleNamespace) -> SimpleNamespace:
+    """Attach computed lists (blocks, documents) after all entities are added."""
+    doc.blocks = [e for e in doc.entities if getattr(e, 'kind', None) == 'block']
+    doc.documents = [e for e in doc.entities if getattr(e, 'kind', None) == 'document']
+    return doc
+
+
+def _seg(type: str, content: str) -> SimpleNamespace:
+    """Create a lightweight body segment."""
+    return SimpleNamespace(type=type, content=content)
+
+
+def parse_smd(text: str) -> SimpleNamespace:
     """Parse a complete .smd document from a string.
 
     Args:
         text: Raw text content of an .smd file.
 
     Returns:
-        An SMDDocument containing all parsed entities.
+        A SimpleNamespace document with .entities, .blocks, .documents.
 
     Raises:
         ParseError: If the text cannot be parsed.
     """
-    doc = SMDDocument()
+    doc = _document()
     seen_ids: set[str] = set()
 
     # Step 1: Split on entity boundaries
@@ -88,12 +172,10 @@ def parse_smd(text: str) -> SMDDocument:
         body_text = raw[sep_match.end() :].strip()
 
         if is_document:
-            # @document — create a nested SMDDocument
-            sub_doc = SMDDocument()
+            # @document — create a nested document
+            sub_doc = _document(header, header_text)
             sub_doc.entities = _parse_body_segments(body_text)
-            # Store header info directly on the document for access
-            sub_doc.header = header  # type: ignore[attr-defined]
-            sub_doc.raw_header = header_text  # type: ignore[attr-defined]
+            _finalize(sub_doc)
             doc.entities.append(sub_doc)
 
         else:
@@ -105,7 +187,7 @@ def parse_smd(text: str) -> SMDDocument:
                 seen_ids.add(block_id)
 
             segments = _parse_body_segments(body_text)
-            block = SMDBlock(
+            block = _block(
                 block_id=str(block_id) if block_id is not None else "",
                 header=header,
                 raw_header=header_text,
@@ -114,17 +196,17 @@ def parse_smd(text: str) -> SMDDocument:
             )
             doc.entities.append(block)
 
-    return doc
+    return _finalize(doc)
 
 
-def parse_file(path: str | Path) -> SMDDocument:
+def parse_file(path: str | Path) -> SimpleNamespace:
     """Parse an .smd file from disk.
 
     Args:
         path: Path to the .smd file.
 
     Returns:
-        An SMDDocument containing all parsed entities.
+        A SimpleNamespace document with .entities, .blocks, .documents.
     """
     path = Path(path)
     if not path.exists():
@@ -133,7 +215,7 @@ def parse_file(path: str | Path) -> SMDDocument:
     return parse_smd(text)
 
 
-def _parse_body_segments(body: str) -> List[BodySegment]:
+def _parse_body_segments(body: str) -> list:
     """Split a block/document body into typed segments.
 
     Recognizes triple-backtick fenced blocks (```type ... ```).
@@ -142,7 +224,7 @@ def _parse_body_segments(body: str) -> List[BodySegment]:
     if not body:
         return []
 
-    segments: List[BodySegment] = []
+    segments: list = []
     last_end = 0
 
     for match in _FENCED_BLOCK.finditer(body):
@@ -153,12 +235,12 @@ def _parse_body_segments(body: str) -> List[BodySegment]:
             text = body[last_end:start]
             stripped = text.strip()
             if stripped:
-                segments.append(BodySegment(type="markdown", content=text))
+                segments.append(_seg("markdown", text))
 
         # Emit fenced segment
         seg_type = match.group(1) or "unknown"
         content = match.group(2)
-        segments.append(BodySegment(type=seg_type, content=content))
+        segments.append(_seg(seg_type, content))
 
         last_end = match.end()
 
@@ -167,6 +249,65 @@ def _parse_body_segments(body: str) -> List[BodySegment]:
         text = body[last_end:]
         stripped = text.strip()
         if stripped:
-            segments.append(BodySegment(type="markdown", content=text))
+            segments.append(_seg("markdown", text))
 
     return segments
+
+
+# ---------------------------------------------------------------------------
+# Collection-level helpers (operate on a parsed document namespace)
+# ---------------------------------------------------------------------------
+
+def all_tags(doc: SimpleNamespace) -> list:
+    """Return all unique tags across all blocks, in order of first appearance."""
+    seen: set[str] = set()
+    result: list = []
+    for b in doc.blocks:
+        for t in b.tags:
+            if t not in seen:
+                seen.add(t)
+                result.append(t)
+    return result
+
+
+def filter_by_tag(doc: SimpleNamespace, tag: str) -> list:
+    """Return all blocks containing a specific tag."""
+    return [b for b in doc.blocks if tag in b.tags]
+
+
+def filter_by_type(doc: SimpleNamespace, block_type: str) -> list:
+    """Return all blocks with a specific type."""
+    return [b for b in doc.blocks if b.type == block_type]
+
+
+def filter_by_tags(doc: SimpleNamespace, tags: list, mode: str = "any") -> list:
+    """Return blocks matching a set of tags.
+
+    Args:
+        tags: List of tags to match.
+        mode: "any" = block has at least one tag; "all" = block has every tag.
+    """
+    if mode == "any":
+        return [b for b in doc.blocks if any(t in b.tags for t in tags)]
+    elif mode == "all":
+        return [b for b in doc.blocks if all(t in b.tags for t in tags)]
+    else:
+        raise ValueError(f"Unknown mode: {mode}. Use 'any' or 'all'.")
+
+
+def tag_co_occurrence(doc: SimpleNamespace) -> dict:
+    """Build a tag co-occurrence matrix for clustering pipelines.
+
+    Returns:
+        Dict mapping each tag -> {other_tag: count}.
+    """
+    matrix: dict = {}
+    for block in doc.blocks:
+        tags = block.tags
+        for t1 in tags:
+            if t1 not in matrix:
+                matrix[t1] = {}
+            for t2 in tags:
+                if t1 != t2:
+                    matrix[t1][t2] = matrix[t1].get(t2, 0) + 1
+    return matrix

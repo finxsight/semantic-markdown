@@ -1,83 +1,42 @@
 # Semantic Markdown (SMD)
 
-### A structured document format for a world shared by humans and machines
+### A block-addressable document format for humans, agents, and viewers
 
 ---
 
 ## Overview
 
-A document should not be parsed into structure.
-
-It should *be structured*.
-
 Semantic Markdown (SMD) is a document format where writing, structure, and data are unified into a single native representation.
 
-Instead of extracting meaning from text, SMD encodes meaning directly inside the document itself.
+Instead of extracting meaning from text, SMD encodes meaning directly inside the document. Every block carries its own JSON header — tags, sentiment, enrichment, metadata — while the body remains clean, readable Markdown.
 
-A document becomes one object across all systems:
+One document. Three consumers:
 
-- human-readable
-- machine-structured
-- database-indexable
-- AI-native
+- **Humans** — clean Markdown body
+- **Agents** — parseable JSON headers with block-level enrichment
+- **Viewers** — renderable semantic overlays (sentiment coloring, tag filters, highlights)
 
 ---
 
 ## The Problem
 
-Today, documents are not single systems.
-
-They are translation pipelines.
-
-A single piece of content is repeatedly transformed:
+A single piece of content today passes through many systems:
 
 - Humans write text
 - Systems chunk it
-- Databases normalize or store it as blobs
-- AI systems reconstruct meaning in context windows
+- Databases store it as blobs
+- AI systems reconstruct meaning from context windows
 - Applications rebuild structure for display
 
-This creates fragmentation:
+This creates fragmentation: loss of structure, duplicated processing, ambiguous meaning, brittle pipelines.
 
-- loss of structure
-- duplicated processing logic
-- ambiguous meaning
-- brittle pipelines
-- inconsistent representations across systems
-
-> A document is not stored. It is reconstructed differently by every system that touches it.
-
----
-
-## The Representation Problem
-
-Every system describes documents from a different perspective.
-
-| System | Human Experience | Machine Interpretation | Database View | AI View |
-|--------|------------------|------------------------|---------------|---------|
-| Markdown | Clean readable text | Flat token stream | Unstructured blob | Chunked context windows |
-| HTML | Rendered page | DOM tree | Stored markup string | Fragmented parsing |
-| Notion | Block-based editor | Internal block graph | Proprietary JSON export | Partial structured chunks |
-| ProseMirror | Rich editor canvas | Document tree (AST) | Serializable JSON AST | Node-level traversal |
-| SQL / Databases | Tables and queries | Strict schema model | Normalized relations | Not document-native |
-| Vector Databases | — | Embedding vectors | Dense representations | Similarity-only memory |
-
-Each system optimizes one perspective.
-
-None unify them.
+> A document is not stored. It is *reconstructed differently* by every system that touches it.
 
 ---
 
 ## The Shift
 
-SMD removes the need for translation layers.
-
-A document is no longer converted into structure after creation.
-
-Structure is written at creation time.
-
-> Writing becomes modeling.  
-> Documents become data.
+SMD removes translation layers. Structure is written at creation time.
 
 Instead of:
 
@@ -97,256 +56,245 @@ There is no hidden structure outside the document itself.
 
 ---
 
-## The Model
+## Format
 
-SMD is built from three primitives:
+SMD has two primitives: `@document` and `@block`.
 
-- documents
-- blocks
-- nodes
-
-
-Document
-├── metadata
-└── blocks[]
-
-Block
-├── metadata
-└── nodes[]
-
-Node
-├── type
-├── value
-└── metadata
-
-
-That is the entire system.
-
----
-
-## SMD Native Syntax
-
-SMD uses Markdown-native semantic primitives instead of external serialization formats.
-
-Structure is expressed directly inside the document.
-
----
-
-## 1. Document
-
-A document defines global identity and metadata.
+### `@document`
+The top-level container with a JSON header and optional Markdown body.
 
 ```
-@document {
-  id: "et_0087",
-  read_only: false,
-  date: "2026-01-01",
-  type: "earnings_transcript"
-}
-```
-
-2. Block
-
-A block is a semantic unit of meaning and a hard structural boundary.
-
-Blocks use a decorator plus a mandatory fence delimiter.
-
-```
-@block {
-  id: "qa-0042",
-  tags: ["guidance", "revenue"]
+@document
+{
+  "document_id": "aapl-q3-2026",
+  "schema_version": "0.2",
+  "type": "transcript",
+  "created": "2026-01-01T00:00:00Z"
 }
 ---
 ```
 
-Everything after --- belongs to this block until the next @block.
-
-3. Nodes
-
-Nodes are ordered, typed content units inside a block.
-
-Nodes are expressed using fenced syntax except for markdown content
+### `@block`
+The fundamental addressable unit. Every block has a JSON header and a Markdown body, separated by `---`.
 
 ```
-Analyst: Can you discuss guidance?
-CEO: We expect steady growth next quarter.
-```
-
+@block
+{
+  "block_id": "qa-0042",
+  "type": "qa",
+  "tags": ["guidance", "margins"],
+  "sentiment": [
+    {
+      "excerpt": "We expect steady growth.",
+      "score": 0.74,
+      "label": "positive",
+      "confidence": 0.88
+    }
+  ],
+  "enrichment": {
+    "highlights": ["Revenue guidance above consensus"],
+    "entities": ["AAPL"],
+    "summary": "CEO provides positive outlook on Q4."
+  }
+}
 ---
+**Analyst:** Can you discuss guidance?
 
-## Node Rules
+**CEO:** We expect steady growth next quarter.
+```
 
-- Nodes are ordered
-- Non markdown Node type is defined by fence language
-- Nodes are atomic units of representation
-- No hidden structure exists inside nodes
+### Body Segments
+Block bodies are parsed into **typed segments**. Markdown text between fenced blocks is `type: "markdown"`. Triple-backtick fenced blocks with a type label become typed segments:
+
+````
+@block { "block_id": "note-001" }
+---
+Some markdown here.
+
+```thought
+This is my internal thinking about this topic.
+```
+
+```action_item
+Review benchmarks. Assigned to: Bob
+Due: 2026-07-01
+```
+````
+
+Parses to: `[{type: "markdown", …}, {type: "thought", …}, {type: "markdown", …}, {type: "action_item", …}]`
 
 ---
 
 ## Full Example
 
 ```
-@document {
-  id: "aapl-q3-2026",
-  type: "transcript",
-  date: "2026-01-01"
-}
-
-@block {
-  id: "qa-0042",
-  tags: ["guidance", "margins"]
+@document
+{
+  "document_id": "aapl-q3-2026",
+  "schema_version": "0.2",
+  "type": "transcript",
+  "created": "2026-01-01T00:00:00Z",
+  "meta": {
+    "ticker": "AAPL",
+    "fiscal_quarter": "Q3"
+  }
 }
 ---
 
-Analyst: Can you discuss guidance?
-CEO: We expect steady growth next quarter.
+@block
+{
+  "block_id": "qa-0042",
+  "type": "qa",
+  "position": 1,
+  "tags": ["guidance", "margins"],
+  "sentiment": [
+    {
+      "excerpt": "We expect steady growth.",
+      "score": 0.74,
+      "label": "positive",
+      "confidence": 0.88
+    }
+  ],
+  "enrichment": {
+    "highlights": ["Revenue guidance above consensus"],
+    "entities": ["AAPL", "Services"],
+    "summary": "Guidance beat consensus by ~2%."
+  }
+}
+---
+**Analyst:** Can you discuss guidance?
 
-Analyst: What about margins?
-CFO: We are focused on operational efficiency.
+**CEO:** We expect steady growth next quarter.
+
+**Analyst:** What about margins?
+
+**CFO:** We are focused on operational efficiency.
 ```
 
 ---
 
 ## Design Rules
 
-- A document is a sequence of blocks
-- A block is explicitly delimited
-- Nodes are typed via fences
-- Order is always meaningful
-- Metadata is always structured
+- A document is a container of blocks
+- Every entity has a JSON header
+- Header and body are separated by `---`
+- Block bodies contain ordered typed segments (markdown + fenced blocks)
+- Metadata is always structured JSON
 - No implicit structure exists outside the format
-
----
-
-## What This Replaces
-
-SMD replaces fragmented document pipelines:
-
-- chunking strategies
-- parsing layers
-- embedding pipelines
-- index construction logic
-- rendering transformations
-
-Instead, all systems operate on a single representation.
 
 ---
 
 ## What This Enables
 
-When structure is native, documents become programmable.
-
-SMD enables:
-
-- Queryable notes without preprocessing
-- Addressable transcripts (block-level retrieval)
-- Research notebooks in a single format
-- Composable knowledge systems for AI
-- Retrieval over structured units instead of text chunks
-- Systems that enrich documents instead of reconstructing them
+- **Queryable documents** without preprocessing — filter by tags, type, sentiment
+- **Addressable retrieval** — fetch specific blocks by `block_id` instead of chunking
+- **Agent-native enrichment** — LLMs can read, annotate, and save documents
+- **Semantic overlays** — viewers render sentiment colors, tag badges, highlight callouts
+- **Cross-document views** — aggregate blocks by tag across multiple `.smd` files
+- **Bottom-up clustering** — discover emergent topics from tag co-occurrence
 
 ---
 
-## LLM-Native Design
+## Project Components
 
-SMD is designed for systems where documents are not static files, but active memory structures.
+### Python Library
 
-In these systems:
+```bash
+pip install semantic-markdown
+```
 
-- nodes become atomic knowledge units
-- blocks become reasoning contexts
-- metadata becomes retrieval and linking signals
+| Component | Description |
+|---|---|
+| `parser.py` | Core SMD text → document parser. O(n), single pass. |
+| `indexer.py` | `SMDIndexer` — chunking, sentiment-keyed storage, Q&A thread extraction, tag inverted index, topic clustering |
+| `harness.py` | `SMD Agent Harness` — SMDAgent + MCP server; controlled LLM-document interface |
 
-SMD acts as a shared storage layer for structured intelligence systems.
+### CLI
+
+```
+smd <file.smd>     — parse and display SMD document structure
+smd-mcp            — start the MCP server for LLM integration
+```
+
+### Viewer
+
+`viewer.html` — a standalone browser viewer with embedded JS SMD parser. Features:
+
+- Template picker sidebar (transcript, notebook, corpus)
+- Tag-based filtering (clickable tag chips)
+- Sentiment-colored block cards (red → yellow → green)
+- Highlight annotations with sentiment bars
+- Key takeaways, summaries, fenced segment rendering
+- Paste-any-SMD text area for quick testing
+
+```bash
+python -m http.server 8080
+# Open http://localhost:8080/viewer.html
+```
+
+### MCP Server (Agent Harness)
+
+`harness.py` — the **SMD Agent Harness**: combines SMDAgent + MCP server into a single, auditable interface. The harness is the controlled boundary between an LLM and SMD documents — every read, write, and enrichment goes through typed tool calls. The LLM never touches the filesystem directly.
+
+```bash
+smd-mcp
+```
+
+12 tools: `read`, `search`, `add_enrichment`, `del_enrichment`, `edit_enrichment`, `write_sentiment`, `write_tags`, `filter_blocks`, `read_next_qa`, `read_next_block`, `read_document`, `save`
 
 ---
 
-## Why This Works
+## Agent Workflow
 
-Most document systems assume:
-
-> Structure must be extracted from text.
-
-SMD assumes:
-
-> Structure should exist before interpretation.
-
-This inversion removes an entire class of complexity.
+```
+1. Agent loads .smd file via the harness
+2. Agent identifies topics, sentiment, entities
+3. Agent calls write_sentiment(), add_enrichment(), write_tags()
+4. Agent calls save() to write back enriched .smd
+5. Viewer renders with color-coded sentiment and highlights
+```
 
 ---
 
-## Mental Model
+## Use Cases
 
-Think of SMD as:
-
-- Markdown, but structured  
-- JSON, but human-writable  
-- Notion, but portable  
-- A document, but queryable  
-- A file, but also an API  
+- **Earnings transcripts** — Q&A blocks with sentiment, speaker attribution, topic tags
+- **Research notebooks** — dated entries with thought/action_item fenced blocks
+- **RAG corpora** — pre-enriched semantic chunks with summaries and entities
+- **Multi-author collaboration** — blocks attributed by author with status tracking
+- **Financial dashboards** — block-level embeds (charts, widgets) alongside structured data
 
 ---
 
-## Why Existing Systems Don’t Fully Solve This
-
-SMD is not a new idea—it is a recombination of partial solutions.
+## Why Existing Systems Don't Fully Solve This
 
 | System | What it gets right | What it lacks |
-|--------|--------------------|--------------|
-| ProseMirror | Structured document tree | No semantic node/data standard |
-| Notion | Block-based authoring | Not portable outside its ecosystem |
+|---|---|---|
 | Markdown | Human-readable simplicity | No native structure |
-| HTML | Rich rendering model | Not a semantic storage format |
 | JSON / ASTs | Fully structured data | Not human-writable as primary format |
+| YAML+MD (Frontmatter) | File-level metadata | No block-level addressing |
+| Notion | Block-based authoring | Not portable outside its ecosystem |
+| ProseMirror | Structured document tree | No semantic node/data standard |
+| MDX | Markdown + components | Requires JSX toolchain |
 
-Each solves a slice of the problem.
-
-None unify:
-
-> authoring + structure + portability + machine interpretability
-
----
-
-## The Gap SMD Fills
-
-SMD sits at the intersection:
-
-- structured like ProseMirror  
-- authored like Markdown  
-- composable like JSON  
-- modular like Notion blocks  
-- portable like a file format  
+SMD sits at the intersection: structured like ProseMirror, authored like Markdown, composable like JSON, modular like Notion blocks, portable like a plain text file.
 
 But unlike each individually:
 
-> Structure is not derived. It is written.
+> The document is the database.
 
 ---
 
 ## Status
 
-Draft specification.
-
-Stable concept. Evolving implementation.
-
----
-
-## Closing Principle
-
-A document should not need to be reconstructed to be understood.
-
-It should already know what it is.
-
----
-
-## Project Status
-
-This is an active research project. The specification is in **v0.2** and evolving.
+v0.2 — Draft specification with reference Python implementation and browser viewer.
 
 - 📄 [Full Specification](SPECIFICATION.md)
-- 🐍 [Python Reference Parser](src/parser.py)
+- 🐍 [Parser](src/semantic_markdown/parser.py)
+- 🔍 [Indexer](src/semantic_markdown/indexer.py)
+- 🤖 [Agent Harness](src/semantic_markdown/harness.py)
+- 🖥️ [Viewer](viewer.html)
 - 📚 [Examples](examples/)
-- 📝 arXiv paper forthcoming
 
 ---
 

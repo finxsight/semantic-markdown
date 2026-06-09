@@ -110,7 +110,7 @@
     "enrichments": [
         {
             "type": "highlight",
-            "topic": "Weather impact & margin recovery",
+            "topic": "Margin expansion & operational leverage",
             "highlights": [
                 {
                     "sentiment": 0.5,
@@ -306,7 +306,7 @@
     "enrichments": [
         {
             "type": "highlight",
-            "topic": "Guidance confidence & CAM secular strength",
+            "topic": "Guidance confidence & growth momentum",
             "highlights": [
                 {
                     "sentiment": 0.7,
@@ -357,7 +357,7 @@
     "enrichments": [
         {
             "type": "highlight",
-            "topic": "Semiconductor reshoring & pharma GLP-1 diversification",
+            "topic": "Semiconductor reshoring & secular demand",
             "highlights": [
                 {
                     "sentiment": 0.5,
@@ -472,7 +472,7 @@
     "enrichments": [
         {
             "type": "highlight",
-            "topic": "Ignite M&A integration & diagnostic strategy",
+            "topic": "Diagnostics & services growth",
             "highlights": [
                 {
                     "sentiment": 0.6,
@@ -625,7 +625,7 @@
     "enrichments": [
         {
             "type": "highlight",
-            "topic": "LC/MS product cycle & enterprise services flywheel",
+            "topic": "Product replacement cycle & innovation",
             "highlights": [
                 {
                     "sentiment": 0.7,
