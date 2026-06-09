@@ -504,8 +504,6 @@ Agents do not process documents. They interact with persistent memory objects.
 ```
 1. OBSERVE  — Agent reads memory state via the harness
 2. ENRICH   — Agent attaches new memory: sentiment, tags, entities, summaries
-3. LINK     — Agent connects memory relations across blocks and documents
-4. PERSIST  — Agent saves updated memory graph back to the document
 ```
 
 Over time, SMD documents converge into a **living wiki graph co-authored by humans and agents**.
@@ -551,19 +549,13 @@ But unlike each individually:
 
 ## Why Not Frontmatter?
 
-Frontmatter describes files.
+Frontmatter describes files. SMD describes blocks.
 
-SMD describes blocks.
-
-Frontmatter provides file-level metadata.
-
-SMD provides addressable semantic objects inside a document.
+Frontmatter provides file-level metadata. SMD provides addressable semantic objects inside a document.
 
 In SMD, every block carries its own metadata, enrichments, tags, summaries, sentiment, entities, and application-specific state.
 
-The unit of structure is not the file.
-
-It is the block.
+The unit of structure is not the file. It is the block.
 
 ---
 
