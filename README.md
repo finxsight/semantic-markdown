@@ -117,7 +117,7 @@
 
 Semantic Markdown (SMD) is a document format where content and structure coexist in the same file.
 
-Meaning is not inferred after the fact — it is written directly alongside the content.
+Meaning is not inferred after the fact — it is embedded at write time.
 
 Every block carries its own structured metadata — tags, sentiment, entities, enrichments, summaries, or arbitrary JSON — while the body stays human-readable plain text with optional typed segments (Markdown, HTML, code, thought annotations, action items, and more).
 
@@ -185,12 +185,27 @@ There is no hidden structure outside the document itself.
 
 ## What This Enables
 
+SMD turns documents into queryable, addressable, and continuously enrichable data structures.
+
 - **Queryable documents** without preprocessing — filter by tags, type, sentiment
 - **Addressable retrieval** — fetch specific blocks by `block_id` instead of chunking
 - **Agent-native enrichment** — LLMs can read, annotate, and save documents
 - **Semantic overlays** — viewers render sentiment colors, tag badges, highlight callouts
 - **Cross-document views** — aggregate blocks by tag across multiple `.smd` files
 - **Bottom-up clustering** — discover emergent topics from tag co-occurrence
+
+---
+
+## Example: Querying SMD
+
+Find all high-confidence margin-related insights:
+
+```
+filter:
+  type = "investment_thesis"
+  tags contains "margins"
+  sentiment > 0.7
+```
 
 ---
 
@@ -249,6 +264,9 @@ The fundamental addressable unit. Every block has a JSON header and a Markdown b
 ```
 
 ### Typed Segments
+
+Typed segments allow multiple structured interpretations of a single block body without losing human readability.
+
 Block bodies are parsed into **typed segments**. Markdown text between fenced blocks is `type: "markdown"`. Triple-backtick fenced blocks with a type label become typed segments:
 
 ````
@@ -313,6 +331,7 @@ Parses to: `[{type: "markdown", …}, {type: "thought", …}, {type: "markdown",
 - Metadata is always structured JSON
 - No implicit structure exists outside the format
 - Blocks are independently addressable — they can be read, enriched, and rewritten without affecting other blocks
+- The block is the atomic unit of meaning, storage, retrieval, and enrichment
 
 ---
 
@@ -400,6 +419,7 @@ smd-mcp
 | Obsidian | Portable Markdown ecosystem | No semantic block schema |
 | Jupyter Notebooks | Rich mixed-content documents | Not designed for semantic retrieval |
 | SQLite | Structured storage | Not human-authorable |
+| Git | Versioned plain text | No semantic structure |
 
 SMD sits at the intersection: structured like ProseMirror, authored like Markdown, composable like JSON, modular like Notion blocks, portable like a plain text file.
 
@@ -467,8 +487,8 @@ Apache License 2.0 — see [LICENSE](LICENSE) for full text.
 
 ---
 
-SMD does not separate documents and data.
+SMD does not treat documents as passive text.
 
-It unifies them.
+It treats them as structured data.
 
 The document is the database.
