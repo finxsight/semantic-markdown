@@ -103,15 +103,33 @@
 
 ## Overview
 
-Semantic Markdown (SMD) is a document format where writing, structure, and data are unified into a single native representation.
+Semantic Markdown (SMD) is a document format where content and structure live in the same file.
 
-Instead of extracting meaning from text, SMD encodes meaning directly inside the document. Every block carries its own JSON header — tags, sentiment, enrichment, metadata — while the body remains clean, readable Markdown.
+Instead of inferring meaning after a document is written, SMD stores meaning directly alongside the content itself.
+
+Every block carries its own structured metadata — tags, sentiment, entities, enrichments, summaries, or arbitrary JSON — while the body remains clean, readable Markdown.
 
 One document. Three consumers:
 
 - **Humans** — clean Markdown body
 - **Agents** — parseable JSON headers with block-level enrichment
 - **Viewers** — renderable semantic overlays (sentiment coloring, tag filters, highlights)
+
+---
+
+## Why Semantic Markdown?
+
+Today, content, metadata, annotations, and AI enrichments are typically stored in different systems.
+
+A document lives in Markdown.
+Metadata lives in YAML.
+Annotations live in a database.
+Embeddings live in a vector store.
+Application state lives somewhere else.
+
+SMD collapses those layers into a single artifact.
+
+The document becomes both the content and the structured representation of that content.
 
 ---
 
@@ -131,17 +149,17 @@ This creates fragmentation: loss of structure, duplicated processing, ambiguous 
 
 ---
 
-## The Shift
+## Traditional Documents vs Semantic Documents
 
 SMD removes translation layers. Structure is written at creation time.
 
-Instead of:
+Traditional:
 
-> write → parse → chunk → embed → store → reconstruct
+> write → parse → chunk → infer → reconstruct
 
-SMD enables:
+Semantic Markdown:
 
-> write → structure → use
+> write → structure → consume
 
 ---
 
@@ -150,6 +168,17 @@ SMD enables:
 > Everything in SMD is explicit, ordered, and addressable.
 
 There is no hidden structure outside the document itself.
+
+---
+
+## What This Enables
+
+- **Queryable documents** without preprocessing — filter by tags, type, sentiment
+- **Addressable retrieval** — fetch specific blocks by `block_id` instead of chunking
+- **Agent-native enrichment** — LLMs can read, annotate, and save documents
+- **Semantic overlays** — viewers render sentiment colors, tag badges, highlight callouts
+- **Cross-document views** — aggregate blocks by tag across multiple `.smd` files
+- **Bottom-up clustering** — discover emergent topics from tag co-occurrence
 
 ---
 
@@ -180,19 +209,10 @@ The fundamental addressable unit. Every block has a JSON header and a Markdown b
   "block_id": "qa-0042",
   "type": "qa",
   "tags": ["guidance", "margins"],
-  "sentiment": [
-    {
-      "excerpt": "We expect steady growth.",
-      "score": 0.74,
-      "label": "positive",
-      "confidence": 0.88
-    }
-  ],
-  "enrichment": {
-    "highlights": ["Revenue guidance above consensus"],
-    "entities": ["AAPL"],
-    "summary": "CEO provides positive outlook on Q4."
-  }
+  "sentiment": 0.74,
+  "entities":["AAPL"],
+  "summary": "Positive guidance for Q4."
+    
 }
 ---
 **Analyst:** Can you discuss guidance?
@@ -200,7 +220,7 @@ The fundamental addressable unit. Every block has a JSON header and a Markdown b
 **CEO:** We expect steady growth next quarter.
 ```
 
-### Body Segments
+### Typed Segments
 Block bodies are parsed into **typed segments**. Markdown text between fenced blocks is `type: "markdown"`. Triple-backtick fenced blocks with a type label become typed segments:
 
 ````
@@ -243,29 +263,15 @@ Parses to: `[{type: "markdown", …}, {type: "thought", …}, {type: "markdown",
   "block_id": "qa-0042",
   "type": "qa",
   "position": 1,
-  "tags": ["guidance", "margins"],
-  "sentiment": [
-    {
-      "excerpt": "We expect steady growth.",
-      "score": 0.74,
-      "label": "positive",
-      "confidence": 0.88
-    }
-  ],
-  "enrichment": {
-    "highlights": ["Revenue guidance above consensus"],
-    "entities": ["AAPL", "Services"],
-    "summary": "Guidance beat consensus by ~2%."
-  }
+  "tags": ["guidance"],
+  "sentiment": 0.74,
+  "entities": ["AAPL"],
+  "summary": "Positive guidance."
 }
 ---
 **Analyst:** Can you discuss guidance?
 
 **CEO:** We expect steady growth next quarter.
-
-**Analyst:** What about margins?
-
-**CFO:** We are focused on operational efficiency.
 ```
 
 ---
@@ -278,17 +284,6 @@ Parses to: `[{type: "markdown", …}, {type: "thought", …}, {type: "markdown",
 - Block bodies contain ordered typed segments (markdown + fenced blocks)
 - Metadata is always structured JSON
 - No implicit structure exists outside the format
-
----
-
-## What This Enables
-
-- **Queryable documents** without preprocessing — filter by tags, type, sentiment
-- **Addressable retrieval** — fetch specific blocks by `block_id` instead of chunking
-- **Agent-native enrichment** — LLMs can read, annotate, and save documents
-- **Semantic overlays** — viewers render sentiment colors, tag badges, highlight callouts
-- **Cross-document views** — aggregate blocks by tag across multiple `.smd` files
-- **Bottom-up clustering** — discover emergent topics from tag co-occurrence
 
 ---
 
@@ -373,6 +368,8 @@ smd-mcp
 | Notion | Block-based authoring | Not portable outside its ecosystem |
 | ProseMirror | Structured document tree | No semantic node/data standard |
 | MDX | Markdown + components | Requires JSX toolchain |
+| Obsidian | Portable Markdown ecosystem | No semantic block schema |
+| Jupyter Notebooks | Rich mixed-content documents | Not designed for semantic retrieval |
 
 SMD sits at the intersection: structured like ProseMirror, authored like Markdown, composable like JSON, modular like Notion blocks, portable like a plain text file.
 
@@ -382,9 +379,27 @@ But unlike each individually:
 
 ---
 
+## Why Not Frontmatter?
+
+Frontmatter describes files.
+
+SMD describes blocks.
+
+Frontmatter provides file-level metadata.
+
+SMD provides addressable semantic objects inside a document.
+
+In SMD, every block can carry its own metadata, enrichments, tags, summaries, sentiment, entities, and application-specific state.
+
+The unit of structure is not the file.
+
+It is the block.
+
+---
+
 ## Status
 
-v0.0 — Active research with reference Python implementation and browser viewer.
+Experimental — active research project with a reference parser, viewer, and agent tooling.
 
 - 📄 [Full Specification](SPECIFICATION.md)
 - 🐍 [Parser](src/semantic_markdown/parser.py)
@@ -419,3 +434,13 @@ The viewer loads `.smd` files from `examples/` and renders them with sentiment c
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE) for full text.
+
+---
+
+SMD treats documents as first-class semantic objects.
+
+Not text that must be interpreted later.
+
+Not blobs that require reconstruction.
+
+The document is the database.
