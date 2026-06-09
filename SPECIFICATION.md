@@ -11,25 +11,52 @@
 
 ## Table of Contents
 
-- [0. Design Principles](#0-design-principles)
-- [1. Primitives](#1-primitives)
-- [2. Separator Rules](#2-separator-rules)
-- [3. Formal Grammar (EBNF)](#3-formal-grammar-ebnf)
-- [4. Body Content Parsing](#4-body-content-parsing)
-- [5. Parser Algorithm](#5-parser-algorithm)
-- [6. Identifiers](#6-identifiers)
-- [7. Nesting Conventions](#7-nesting-conventions-not-format-rules)
-- [8. Use Cases](#8-use-cases)
-- [9. Viewer Semantics](#9-viewer-semantics-semantic-overlays)
-- [10. Clustering Pipelines](#10-clustering-pipelines)
-- [11. Comparison with Alternatives](#11-comparison-with-alternatives)
-- [12. Error Handling](#12-error-handling)
-- [13. Future Considerations](#13-future-considerations)
-- [14. License](#14-license)
+- [0. Conformance Levels](#0-conformance-levels)
+- [1. Design Principles](#1-design-principles)
+- [2. Primitives](#2-primitives)
+- [3. Separator Rules](#3-separator-rules)
+- [4. Formal Grammar (EBNF)](#4-formal-grammar-ebnf)
+- [5. Body Content Parsing](#5-body-content-parsing)
+- [6. Parser Algorithm](#6-parser-algorithm)
+- [7. Identifiers](#7-identifiers)
+- [8. Nesting Conventions](#8-nesting-conventions-not-format-rules)
+- [9. Use Cases](#9-use-cases)
+- [10. Viewer Semantics](#10-viewer-semantics-semantic-overlays)
+- [11. Clustering Pipelines](#11-clustering-pipelines)
+- [12. Comparison with Alternatives](#12-comparison-with-alternatives)
+- [13. Error Handling](#13-error-handling)
+- [14. Future Considerations](#14-future-considerations)
+- [15. License](#15-license)
 
 ---
 
-## 0. Design Principles
+## 0. Conformance Levels
+
+This specification uses the key words **MUST**, **SHOULD**, and **MAY** as defined in [RFC 2119](https://tools.ietf.org/html/rfc2119).
+
+- **MUST**: Required for valid SMD. Parsers MUST reject documents that violate these rules.
+- **SHOULD**: Recommended for interoperability. Parsers SHOULD warn on deviation.
+- **MAY**: Optional extensions. Implementations MAY choose to support or ignore these behaviors.
+
+| Rule | Level | Scope |
+|---|---|---|
+| `block_id` unique within document | MUST | All blocks |
+| JSON header is valid RFC 8259 | MUST | All entities |
+| `---` separator present after header | MUST | All entities |
+| `@document`/`@block` at line start | MUST | Parser |
+| `document_id` on @document | SHOULD | Document |
+| `schema_version` on @document | SHOULD | Document |
+| `type` on @block | SHOULD | Block |
+| Sentiment interpreted visually | MAY | Viewer |
+| `parent_id` used for hierarchy | MAY | Application |
+| Cross-document aggregation | MAY | Viewer / Indexer |
+| Clustering pipelines | MAY | External tools |
+
+---
+
+## 1. Design Principles
+
+SMD treats documents as structured data artifacts, not passive text containers.
 
 1. **Minimal primitives.** Two constructs (`@document`, `@block`), one separator (`---`). Everything else is convention.
 
@@ -43,9 +70,9 @@
 
 ---
 
-## 1. Primitives
+## 2. Primitives
 
-### 1.1 `@document`
+### 2.1 `@document`
 
 The top-level container. A document has one JSON header and an optional Markdown body.
 
@@ -76,7 +103,7 @@ The top-level container. A document has one JSON header and an optional Markdown
 
 The body is optional — a document may exist solely as a container for blocks.
 
-### 1.2 `@block`
+### 2.2 `@block`
 
 A content unit — the fundamental addressable entity in SMD.
 
@@ -121,8 +148,8 @@ A content unit — the fundamental addressable entity in SMD.
 | `created` | OPTIONAL | ISO 8601 timestamp. |
 | `position` | OPTIONAL | Ordinal position within parent or document. |
 | `tags` | OPTIONAL | Free-form string tags. No taxonomy required. Used for filtering, clustering, and overlays. |
-| `sentiment` | OPTIONAL | A list of sentiment records, each tied to a specific excerpt. Each record has: `excerpt` (text span), `score` (0.0–1.0; 0=negative, 0.5=neutral, 1.0=positive), `label` (optional human-readable label), `confidence` (optional model confidence 0.0–1.0). Legacy single-float sentiment is also supported. |
-| `enrichment` | OPTIONAL | Agent-generated or human-written enrichment data. Common fields: `highlights`, `entities`, `summary`, `key_takeaways`. |
+| `sentiment` | OPTIONAL | Two valid forms: **Simple form** — a single float `0.0–1.0` (0=negative, 0.5=neutral, 1.0=positive). **Structured form** — a list of sentiment records, each tied to a specific excerpt. Each record has: `excerpt` (text span), `score` (0.0–1.0), `label` (optional human-readable label), `confidence` (optional model confidence 0.0–1.0). Both forms are valid; parsers MUST accept either. |
+| `enrichment` | OPTIONAL | Agent-generated or human-written enrichment data. Common fields: `highlights`, `entities`, `summary`, `key_takeaways`. Enrichment is mutable and MAY be updated independently of the original body content. |
 | `meta` | OPTIONAL | Application-specific metadata. |
 
 The body is **REQUIRED** for `@block` (may be empty string).
@@ -131,11 +158,11 @@ All enrichment, sentiment, highlights, and summary data MUST be placed in the bl
 
 ---
 
-## 2. Separator Rules
+## 3. Separator Rules
 
 ### 2.1 Entity start
 
-An SMD file is parsed by scanning for lines that match `^@document` or `^@block` at the start of a line.
+An SMD file is parsed by scanning for lines that match `^@document` or `^@block` at the start of a line. The parser assumes that `@document` and `@block` always begin at the start of a line with no preceding whitespace.
 
 ### 2.2 Header–body separator
 
@@ -158,7 +185,7 @@ A block/document body is terminated by:
 
 ---
 
-## 3. Formal Grammar (EBNF)
+## 4. Formal Grammar (EBNF)
 
 ```ebnf
 smd_file        = { entity } , EOF;
@@ -168,7 +195,7 @@ entity          = document | block;
 document        = "@document", newline, json_header, separator, body;
 block           = "@block", newline, json_header, separator, body;
 
-json_header     = "{" , { any_character } , "}";
+json_header     = valid_json_object ;  (* MUST be valid RFC 8259 JSON *)
 separator       = newline, "---", newline;
 body            = { any_character };
 
@@ -176,19 +203,21 @@ newline         = "\n" | "\r\n";
 any_character   = ? any Unicode character except EOF ?;
 ```
 
-Note: The JSON header must be a valid JSON object as defined by [RFC 8259](https://tools.ietf.org/html/rfc8259).
+This grammar defines syntactic structure only. It does not define semantic validity of JSON fields or enrichment schemas.
+
+The JSON header MUST be a valid JSON object as defined by [RFC 8259](https://tools.ietf.org/html/rfc8259).
 
 ---
 
-## 4. Body Content Parsing
+## 5. Body Content Parsing
 
 The body parser recognizes **triple-backtick fenced sections** with an optional content type label. The body is split into an ordered list of typed segments.
 
-### 4.1 Markdown segments
+### 5.1 Markdown segments
 
 Raw Markdown text between fenced blocks is parsed as `type: "markdown"`.
 
-### 4.2 Fenced segments
+### 5.2 Fenced segments
 
 Content between ` ```type ... ``` ` is extracted as a typed payload:
 
@@ -221,7 +250,7 @@ The parser produces:
 
 ---
 
-## 5. Parser Algorithm
+## 6. Parser Algorithm
 
 ```
 function parse_smd(text: string): Entity[] {
@@ -261,20 +290,19 @@ function parse_smd(text: string): Entity[] {
 
 ---
 
-## 6. Identifiers
+## 7. Identifiers
 
-### 6.1 `block_id`
+### 7.1 `block_id`
 
 - **REQUIRED** on every `@block`.
-- MUST be unique within the containing document.
-- RECOMMENDED conventions: UUIDv7 (time-sortable), slugs (`qa-0042`, `day-2026-01-15`), or path-like identifiers (`section/methodology/wacc`).
+- MUST be unique within the containing document.- Global uniqueness is achieved via the `(document_id, block_id)` tuple.- RECOMMENDED conventions: UUIDv7 (time-sortable), slugs (`qa-0042`, `day-2026-01-15`), or path-like identifiers (`section/methodology/wacc`).
 
-### 6.2 `document_id`
+### 7.2 `document_id`
 
 - **REQUIRED** on every `@document`.
 - RECOMMENDED: UUIDv7 or a unique slug.
 
-### 6.3 Referencing
+### 7.3 Referencing
 
 Blocks reference each other via `parent_id` to form tree structures. The format does not enforce tree validity; it is a convention.
 
@@ -290,17 +318,17 @@ Blocks reference each other via `parent_id` to form tree structures. The format 
 
 ---
 
-## 7. Nesting Conventions (Not Format Rules)
+## 8. Nesting Conventions (Not Format Rules)
 
 SMD does not have built-in nesting. The following conventions are recognized patterns:
 
-### 7.1 Explicit parent pointer
+### 8.1 Explicit parent pointer
 
 ```smd
 @block { "block_id": "sec-1-1", "parent_id": "ch-1" }
 ```
 
-### 7.2 Tag-based level
+### 8.2 Tag-based level
 
 ```smd
 @block { "block_id": "h1", "tags": ["block_level=1"] }
@@ -314,7 +342,7 @@ SMD does not have built-in nesting. The following conventions are recognized pat
 
 A viewer can reconstruct a tree by grouping on `block_level`.
 
-### 7.3 Path-based `block_id`
+### 8.3 Path-based `block_id`
 
 ```smd
 @block { "block_id": "2026/06/07/note-1" }
@@ -323,7 +351,7 @@ A viewer can reconstruct a tree by grouping on `block_level`.
 
 The `/` separator is a convention — viewers MAY split on `/` to build a tree.
 
-### 7.4 Namespaced tags
+### 8.4 Namespaced tags
 
 ```smd
 @block { "tags": ["section:intro"] }
@@ -334,9 +362,9 @@ Clustering pipelines can discover hierarchy from tag name conventions.
 
 ---
 
-## 8. Use Cases
+## 9. Use Cases
 
-### 8.1 Earnings Transcript (Q&A blocks)
+### 9.1 Earnings Transcript (Q&A blocks)
 
 ```smd
 @document
@@ -400,7 +428,7 @@ Clustering pipelines can discover hierarchy from tag name conventions.
 **Tim Cook:** We're investing significantly...
 ```
 
-### 8.2 Financial Notebook (day blocks)
+### 9.2 Financial Notebook (day blocks)
 
 One file, many dated entries:
 
@@ -441,7 +469,7 @@ This impacts FCF. Need to adjust model.
 ```
 ```
 
-### 8.3 Collaborative Research (multi-author)
+### 9.3 Collaborative Research (multi-author)
 
 ```smd
 @document { "document_id": "semi-research", "type": "notebook" }
@@ -474,7 +502,7 @@ Review AMD MI350 benchmarks. Assigned to: Bob
 MI350 has 2.4 TB/s memory bandwidth vs NVDA 2.0 TB/s.
 ```
 
-### 8.4 RAG Corpus (semantic chunks)
+### 9.4 RAG Corpus (semantic chunks)
 
 ```smd
 @document { "document_id": "fed-minutes-2026-05", "type": "corpus" }
@@ -503,11 +531,11 @@ The labor market remains tight...
 
 ---
 
-## 9. Viewer Semantics (Semantic Overlays)
+## 10. Viewer Semantics (Semantic Overlays)
 
 SMD is designed for **triple consumption**: humans, agents, and viewers. The JSON header provides rendering hints that enable visual features impossible in plain Markdown or JSON alone.
 
-### 9.1 Tag-Based Filtering
+### 10.1 Tag-Based Filtering
 
 A viewer MAY extract all `tags` arrays from block headers and present them as a filter interface.
 
@@ -521,7 +549,7 @@ A viewer MAY extract all `tags` arrays from block headers and present them as a 
 
 Blocks without matching tags are hidden. No parsing of the Markdown body is needed to build this filter.
 
-### 9.2 Semantic Overlay Mapping
+### 10.2 Semantic Overlay Mapping
 
 | Header Field | Visual Treatment |
 |---|---|
@@ -534,7 +562,7 @@ Blocks without matching tags are hidden. No parsing of the Markdown body is need
 | `author` | Color-coded by author. |
 | `speaker` | Label prefix in transcript view. |
 
-### 9.3 Concrete Viewer Example
+### 10.3 Concrete Viewer Example
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -549,7 +577,7 @@ Blocks without matching tags are hidden. No parsing of the Markdown body is need
 └──────────────────────────────────────────────────────┘
 ```
 
-### 9.4 Cross-Document Views
+### 10.4 Cross-Document Views
 
 A viewer MAY aggregate blocks across multiple `.smd` files:
 
@@ -565,7 +593,7 @@ View: All blocks tagged #action_item across research-*.smd
 
 Only the JSON headers need to be scanned — body parsing is optional for this view.
 
-### 9.5 Viewer Architecture
+### 10.5 Viewer Architecture
 
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────────┐
@@ -582,11 +610,11 @@ Only the JSON headers need to be scanned — body parsing is optional for this v
 └──────────────┘     └──────────────────┘     └───────────────────┘
 ```
 
-The viewer is **stateless** — all rendering hints are in the file itself. No separate database query needed.
+The viewer is **stateless** per document — all core rendering hints are in the file itself. Cross-document features (clustering, aggregation, tag normalization) MAY introduce external indexing layers.
 
 ---
 
-## 10. Clustering Pipelines
+## 11. Clustering Pipelines
 
 Because tags are free-form strings in JSON, SMD is naturally amenable to bottom-up structure discovery.
 
@@ -634,7 +662,7 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 11. Comparison with Alternatives
+## 12. Comparison with Alternatives
 
 | Feature | Plain MD | JSON | YAML+MD (Frontmatter) | MDX | SMD |
 |---|---|---|---|---|---|
@@ -648,10 +676,11 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 | Git-friendly | ✅ | ✅ | ✅ | ✅ | ✅ |
 | No proprietary tools | ✅ | ✅ | ✅ | ❌ (JSX) | ✅ |
 | Nesting conventions | ✅ (headings) | ✅ | ❌ | ✅ | ✅ (via `parent_id`, tags) |
+| Semantic retrieval at scale | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
-## 12. Error Handling
+## 13. Error Handling
 
 | Condition | Behavior |
 |---|---|
@@ -664,7 +693,7 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 13. Future Considerations
+## 14. Future Considerations
 
 | Topic | Notes |
 |---|---|
@@ -676,6 +705,6 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 14. License
+## 15. License
 
 This specification is released under the [MIT License](https://opensource.org/licenses/MIT).
