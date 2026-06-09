@@ -119,7 +119,7 @@ Semantic Markdown (SMD) is a document format where content and structure coexist
 
 Meaning is not inferred after the fact — it is embedded at write time.
 
-Every block carries its own structured metadata — tags, sentiment, entities, enrichments, summaries, or arbitrary JSON — while the body stays human-readable plain text with optional typed segments (Markdown, HTML, code, thought annotations, action items, and more).
+Every block carries its own structured metadata — tags, sentiment, entities, enrichments, summaries, or arbitrary JSON — while the body stays human-readable markdown with optional typed segments (HTML, code, thought annotations, action items, and more).
 
 One document. Three consumers:
 
@@ -245,22 +245,6 @@ The fundamental addressable unit. Every block has a JSON header and a Markdown b
 **Analyst:** Can you discuss guidance?
 
 **CEO:** We expect steady growth next quarter.
-```
-
-`@block` supports two forms:
-
-**Multi-line:**
-```
-@block
-{
-  "block_id": "b01",
-  ...
-}
-```
-
-**Inline:**
-```
-@block { "block_id": "b01" }
 ```
 
 ### Typed Segments
@@ -472,12 +456,20 @@ The viewer loads `.smd` files from `examples/` and renders them with sentiment c
 
 ```bibtex
 @software{semantic_markdown,
+  author = {Sandeep Muthangi},
   title = {Semantic Markdown: A Block-Addressable Document Format
            for Human-Agent Collaboration},
   year = {2026},
   url = {https://github.com/finxsight/semantic-markdown}
 }
 ```
+
+---
+
+---
+
+*Sandeep Muthangi*  
+*Semantic Markdown (SMD), 2026*
 
 ---
 
