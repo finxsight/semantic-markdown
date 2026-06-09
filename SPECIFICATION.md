@@ -47,7 +47,7 @@ Properties:
 - **Directed.** Edges have direction unless explicitly symmetric.
 - **Labeled.** Every edge has a type.
 - **Multi-annotation.** Multiple annotations per node/edge are allowed.
-- **Time-evolving.** The graph evolves via agent interaction (see [§12](#12-execution-model)).
+- **Time-evolving.** The graph evolves via agent interaction (see [§12](#12-execution-semantics-layer)).
 
 ---
 
@@ -569,34 +569,259 @@ This query algebra is **a specification, not a mandated implementation**. System
 
 ---
 
-## 12. Execution Model (Agent Interaction)
+## 12. Execution Semantics Layer
 
-Agents interact with SMD documents through four primitives. No direct modification of the block body is required for semantic updates.
+This section defines how LLM-based agents and retrieval systems ground their interactions in SMD's graph structure — transforming SMD from a document format into an **LLM memory operating system**.
 
-| Primitive | Operation | Target |
+The execution semantics layer sits above the query algebra (§11), defining how queries map to retrieval, how retrieved subgraphs are assembled into context windows, and how agents write back to the document graph.
+
+---
+
+### 12.1 Primitives
+
+Agents interact with SMD documents through four primitives. No direct modification of the block body is required for semantic updates — agents annotate, link, and update metadata rather than rewriting content.
+
+| Primitive | Signature | Operation | Target |
+|---|---|---|---|
+| $\text{READ}$ | $\text{READ}(b) \to (\text{body}, A_b, E_b)$ | Retrieve block $b$, its annotations, and incident edges | $B$ |
+| $\text{WRITE}$ | $\text{WRITE}(a) \to a$ | Add or update an annotation on a block or edge | $A$ |
+| $\text{LINK}$ | $\text{LINK}(e) \to e$ | Create or modify a typed edge between blocks | $E$ |
+| $\text{UPDATE}$ | $\text{UPDATE}(b, m) \to b$ | Modify block-level metadata (not body) | $B$ |
+
+#### 12.1.1 Invariants
+
+- **READ** does not modify the graph. It returns the block body, all annotations attached to that block, and all edges incident to that block.
+- **WRITE** annotations are additive by default. When the same `(type, target, provenance.source)` tuple exists, behavior is implementation-defined (last-write-wins, version-stack, or CRDT merge).
+- **LINK** MUST reference valid `block_id` values when resolvable. Dangling links (target not yet indexed) are stored as unresolved and MAY be validated lazily.
+- **UPDATE** affects `meta` only — it does not modify `block_id`, `document_id`, or body content. Block identity is immutable.
+
+---
+
+### 12.2 Graph-Grounded Retrieval
+
+Retrieval in SMD is never a flat top-k text search. Every retrieval operation is grounded in the document graph $G = (B, E, A)$.
+
+#### 12.2.1 Retrieval Function
+
+$$
+R(q, G) = (B_{\text{seed}}, E_{\text{expand}}, A_{\text{select}})
+$$
+
+Where:
+- $B_{\text{seed}}$ — seed blocks retrieved by the query (§11)
+- $E_{\text{expand}}$ — edges traversed from seed blocks to expand context
+- $A_{\text{select}}$ — annotations selected from the expanded subgraph (see §12.4)
+
+#### 12.2.2 Expansion Strategies
+
+| Strategy | Description | Use Case |
 |---|---|---|
-| $\text{READ}(b)$ | Retrieve block $b$ and its annotations | $B$ |
-| $\text{WRITE}(a)$ | Add or update an annotation | $A$ |
-| $\text{LINK}(e)$ | Create or modify a typed edge | $E$ |
-| $\text{UPDATE}(b, \text{meta})$ | Modify block-level metadata | $B$ |
+| $\text{neighbor}(k)$ | Traverse all edges from seed blocks up to $k$ hops | General RAG — pull in related context |
+| $\text{typed}(e, k)$ | Traverse only edges of type $e$ up to $k$ hops | Targeted: follow only `references` or `parent-of` |
+| $\text{temporal}(n)$ | Follow `temporal-order` edges $\pm n$ steps from seed | Notebooks, timelines, sequential documents |
+| $\text{subtree}$ | Follow `parent-of` inward and outward to get full section | Hierarchical documents |
+| $\text{provenance}$ | Follow `derived-from` edges to source blocks | Fact-checking, source attribution |
 
-### 12.1 Invariants
+#### 12.2.3 Expansion Algorithm
 
-- **READ** does not modify the graph.
-- **WRITE** annotations are additive by default; conflict resolution is implementation-defined.
-- **LINK** MUST reference valid `block_id` values (or defer validation).
-- **UPDATE** of `meta` does not affect block identity or body content.
+```
+function retrieve_and_expand(query, G, strategy, k):
+    // 1. Seed retrieval (from §11 query algebra)
+    seeds = Q(query).execute(G)          // embed_search, match, filter
 
-### 12.2 Example Session
+    // 2. Graph expansion
+    expanded = seeds
+    frontier = seeds
+    for hop in 1..k:
+        next_frontier = []
+        for block in frontier:
+            for edge in G.edges_from(block, strategy.type):
+                neighbor = edge.target
+                if neighbor not in expanded:
+                    expanded.add(neighbor)
+                    next_frontier.add(neighbor)
+        frontier = next_frontier
+
+    // 3. Annotate the subgraph
+    subgraph = (expanded, G.edges_subset(expanded), G.annotations_subset(expanded))
+    return subgraph
+```
+
+---
+
+### 12.3 Context Window Construction
+
+The retrieved subgraph must be assembled into a context window suitable for an LLM prompt. This is the projection function from graph to text.
+
+#### 12.3.1 Context Window Function
+
+$$
+C(B_{\text{ctx}}, A_{\text{sel}}) = \text{assemble}(B_{\text{ctx}}, A_{\text{sel}})
+$$
+
+Where $B_{\text{ctx}}$ is the set of blocks in the expanded subgraph and $A_{\text{sel}}$ is the set of selected annotations.
+
+#### 12.3.2 Assembly Rules
+
+The context window is assembled as an ordered sequence of **context entries**, one per block:
+
+```
+[CONTEXT BLOCK: b-001]
+[ANNOTATIONS: sentiment=positive, tags=[inflation, macro]]
+Block body text goes here...
+
+[CONTEXT BLOCK: b-002]
+[ANNOTATIONS: summary="Fed signals caution..."]
+More block body text...
+```
+
+#### 12.3.3 Ordering
+
+Blocks in the context window are ordered by a configurable sort key:
+
+| Ordering | Key | Best For |
+|---|---|---|
+| $\text{relevance}$ | Query similarity score (descending) | Open-ended Q&A |
+| $\text{temporal}$ | `created` timestamp or `temporal-order` edges | Timelines, notebooks |
+| $\text{topological}$ | Graph distance from seed (BFS order) | Hierarchical navigation |
+| $\text{hybrid}$ | Weighted combination of relevance + graph distance | General purpose |
+
+#### 12.3.4 Budget Management
+
+Context windows have finite token budgets. SMD defines a budget allocation strategy:
+
+1. **Reserve** $t_{\text{reserve}}$ tokens for system prompt and query
+2. **Allocate** remaining $t_{\text{budget}}$ tokens across blocks
+3. **Prioritize** seed blocks — allocate up to $t_{\text{max\_per\_block}}$ each
+4. **Expand** — fill remaining budget with neighbor blocks
+5. **Truncate** — if budget exhausted, drop lowest-priority blocks, then truncate bodies
+
+$$
+t_{\text{available}} = t_{\text{context\_window}} - t_{\text{reserve}}
+$$
+
+---
+
+### 12.4 Annotation Selection
+
+Not all annotations are surfaced into every context window. Annotation selection determines which metadata accompanies each block into the prompt.
+
+#### 12.4.1 Selection Function
+
+$$
+\text{select}(A, q, b) \to A' \subseteq A
+$$
+
+Where $A$ is all annotations for blocks in the context, $q$ is the query, and $b$ is the target block.
+
+#### 12.4.2 Selection Policies
+
+| Policy | Rule | Use Case |
+|---|---|---|
+| $\text{all}$ | Include all annotations for every block in context | Debugging, full inspection |
+| $\text{typed}(T)$ | Include only annotations whose type $\in T$ | Targeted: only `summary` + `tags` |
+| $\text{query-relevant}$ | Include annotations whose payload matches query terms | Reduce noise — only show relevant metadata |
+| $\text{provenance-filtered}(S)$ | Include only annotations from sources $\in S$ | Trusted-source only |
+| $\text{top-k-per-type}$ | Include at most $k$ annotations per type, ordered by recency | Budget-constrained windows |
+
+#### 12.4.3 Default Policy (Recommended)
+
+For general-purpose RAG, the recommended default is:
+
+```
+select = typed({"summary", "tags", "entities", "sentiment"})
+```
+
+This surfaces semantic metadata (what the block is about, how it feels) while suppressing structural noise (embeddings, edge definitions, raw highlights).
+
+---
+
+### 12.5 Prompt Assembly Pipeline
+
+The full pipeline from query to LLM-ready prompt:
+
+```
+┌──────────┐    ┌──────────────┐    ┌───────────────┐    ┌──────────────┐    ┌──────────┐
+│  Query   │───▶│  Retrieval   │───▶│  Expansion    │───▶│  Assembly    │───▶│  Prompt  │
+│  q       │    │  R(q, G)     │    │  (hop=k)     │    │  C(B, A')   │    │          │
+└──────────┘    └──────────────┘    └───────────────┘    └──────────────┘    └──────────┘
+                      │                    │                   │
+                      ▼                    ▼                   ▼
+               B_seed = Q(q)        B_ctx = expand(      context_window =
+               .execute(G)          B_seed, strategy)    assemble(B_ctx,
+                                                          select(A, q))
+```
+
+#### 12.5.1 Formal Definition
+
+$$
+\text{prompt}(q, G) = \text{system\_prompt} \oplus \text{assemble}(B_{\text{ctx}}, \text{select}(A_{\text{ctx}}, q)) \oplus q
+$$
+
+Where $\oplus$ denotes concatenation in the order: system prompt, assembled context blocks, user query.
+
+#### 12.5.2 Agent Write-Back
+
+After the LLM produces a response, the agent MAY write back to the document graph:
+
+```
+Agent:  WRITE({ "type": "response", "payload": { "text": "...", "in_response_to": "q" },
+                "provenance": { "source": "rag-agent", "model": "gpt-4", "timestamp": "..." },
+                "target": "qa-0001" })
+        → annotates the queried block with the agent's response
+
+Agent:  LINK({ "type": "edge", "payload": { "edge_type": "derived-from", "source": "resp-0042", "target": "qa-0001" },
+              "provenance": { "source": "rag-agent" } })
+        → links a new response block back to the source
+```
+
+This write-back loop is what transforms SMD from a passive format into an **evolving memory** — each interaction enriches the graph for future retrieval.
+
+---
+
+### 12.6 Example: Full Retrieval + Assembly
+
+```
+Query: "What's the Fed's stance on inflation?"
+
+Step 1 — Retrieval:
+  embed_search("Fed inflation stance") → B_seed = {sec-inflation, sec-rates}
+
+Step 2 — Expansion (typed="references", k=1):
+  traverse("references") from seeds → B_ctx += {sec-cpi, sec-pce}
+
+Step 3 — Annotation Selection (typed={"summary", "tags", "entities", "sentiment"}):
+  select(A_ctx, q) → keep summaries, tags, entities; drop embeddings, raw edges
+
+Step 4 — Assembly (ordering=relevance):
+  [CONTEXT BLOCK: sec-inflation]
+  [tags: inflation, cpi, policy]
+  [summary: "Fed expresses caution on inflation persistence"]
+  [entities: CPI, PCE, fed funds rate]
+  Participants noted that inflation remains elevated...
+
+  [CONTEXT BLOCK: sec-cpi]
+  [tags: cpi, data]
+  [sentiment: {score: -0.2, label: "slightly negative"}]
+  CPI rose 0.3% month-over-month...
+
+Step 5 — Prompt:
+  system_prompt + assembled_context + query → LLM
+```
+
+---
+
+### 12.7 Example Session
 
 ```
 Agent:  READ("qa-0001")
-        → returns block body + annotations
+        → returns block body + annotations + incident edges
 
 Agent:  WRITE({ "type": "sentiment", "payload": { "score": 0.82 }, ... })
         → adds sentiment annotation to qa-0001
 
-Agent:  LINK({ "type": "edge", "payload": { "edge_type": "references", "source": "qa-0001", "target": "sec-inflation" }, ... })
+Agent:  LINK({ "type": "edge", "payload": { "edge_type": "references",
+          "source": "qa-0001", "target": "sec-inflation" }, ... })
         → creates cross-reference edge
 
 Agent:  UPDATE("qa-0001", { "meta": { "reviewed": true } })
