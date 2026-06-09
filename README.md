@@ -22,47 +22,36 @@
 ║                                                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
-║  @document { type:"earnings_transcript",                     ║
-║              ticker:"A", schema:"0.2" }                      ║
+║  @document { type:"earnings_transcript", ticker:"A" }        ║
 ║  ───                                                         ║
-║    ┌ @block { id:2, type:"business_update" } ─┐              ║
-║    │  **CEO:** Revenue grew 4.4% core,        │              ║
-║    │  margins expanded, EPS of $1.36.         │              ║
-║    └──────────────────────────────────────────┘              ║
-║                                                              ║
-║    ┌ @block { id:7, type:"qa",               ─┐              ║
-║    │   enrichments: [{                         │              ║
-║    │     topic: "Margins & leverage",          │              ║
-║    │     highlights: [{                        │              ║
-║    │       text:   "50bp improvement...",      │              ║
-║    │       sentiment: 0.6                      │              ║
-║    │     }]                                    │              ║
-║    │   }]                                      │              ║
-║    │  ───                                      │              ║
-║    │  **Q:** What drove margins in Q1?         │              ║
-║    │  **A:** We expect 50bp improvement,       │              ║
-║    │  driven by pricing, volume & Ignite.      │              ║
-║    └──────────────────────────────────────────┘              ║
-║                                                              ║
-║    ┌ @block { id:42, type:"research_note" } ───┐             ║
-║    │  ## Key Findings                           │             ║
-║    │                                            │             ║
-║    │  Our analysis shows Infra spending          │             ║
-║    │  accelerating across all three clouds.     │             ║
-║    │                                            │             ║
-║    │  ```html                                   │             ║
-║    │  <table>                                   │             ║
-║    │    <tr><th>AWS</th><td>+18%</td></tr>      │             ║
-║    │    <tr><th>Azure</th><td>+21%</td></tr>    │             ║
-║    │    <tr><th>GCP</th><td>+26%</td></tr>      │             ║
-║    │  </table>                                  │             ║
-║    │  ```                                       │             ║
-║    │                                            │             ║
-║    │  ```thought                                │             ║
-║    │  Strength broad-based, not just AI.        │             ║
-║    │  Watch capex-to-revenue ratio next qtr.    │             ║
-║    │  ```                                       │             ║
-║    └────────────────────────────────────────────┘             ║
+║    ┌ @block { id:7, type:"qa",                              ┐║
+║    │   enrichments: [{                                       │║
+║    │     topic: "Margin expansion",                          │║
+║    │     highlights: [{                                      │║
+║    │       text:    "50bp improvement driven by pricing",    │║
+║    │       sentiment: 0.6                                    │║
+║    │     }]                                                  │║
+║    │   }]                                                    │║
+║    │  ───                                                    │║
+║    │  **CEO:** Revenue grew 4.4% core, margins expanding.    │║
+║    │                                                        │║
+║    │  **Q:** What drove the beat this quarter?               │║
+║    │  **A:** Strong pharma demand, CAM up 9%.                │║
+║    │                                                        │║
+║    │  Summary of cloud infrastructure spending:              │║
+║    │                                                        │║
+║    │  ```html                                                │║
+║    │  <table>                                                │║
+║    │    <tr><th>AWS</th><td>+18%</td></tr>                   │║
+║    │    <tr><th>Azure</th><td>+21%</td></tr>                 │║
+║    │  </table>                                               │║
+║    │  ```                                                    │║
+║    │                                                        │║
+║    │  ```thought                                             │║
+║    │  Strength broad-based, not just AI capex.               │║
+║    │  Watch capex-to-revenue ratio next quarter.             │║
+║    │  ```                                                    │║
+║    └────────────────────────────────────────────────────────┘║
 ║                                                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
