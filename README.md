@@ -1,6 +1,72 @@
 # Semantic Markdown (SMD)
 
-### A block-addressable document format for humans, agents, and viewers
+<div align="center">
+
+[![Spec v0.2](https://img.shields.io/badge/spec-v0.2-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![Status: Draft](https://img.shields.io/badge/status-draft-ff6b35?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e)](.)
+[![License: MIT](https://img.shields.io/badge/license-MIT-97ca00?style=for-the-badge&labelColor=1a1a2e)](.)
+
+</div>
+
+<br>
+
+<div align="center">
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║           S E M A N T I C   M A R K D O W N                  ║
+║                                                              ║
+║            "The Document IS the Database"                    ║
+║                                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  @document { type:"transcript", ticker:"A", schema:"0.2" }  ║
+║  ───                                                        ║
+║    ┌ @block { id:0, type:"business_update" } ─┐             ║
+║    │  **CEO:** Revenue grew 4.4% core...       │             ║
+║    │  Margins expanded, EPS of $1.36...        │             ║
+║    └───────────────────────────────────────────┘             ║
+║    ┌ @block { id:1, type:"qa",               ─┐             ║
+║    │   enrichments: [{                        │             ║
+║    │     topic:   "Guidance outlook",         │             ║
+║    │     highlights: [{sentiment:0.74},...]   │             ║
+║    │   }]                                     │             ║
+║    │  ───                                     │             ║
+║    │  **Q:** What drove the beat?             │             ║
+║    │  **A:** Strong pharma, CAM up 9%...      │             ║
+║    └───────────────────────────────────────────┘             ║
+║    ┌ @block { id:2, type:"operator_comment" } ─┐            ║
+║    │  **Operator:** Next question from...       │            ║
+║    └───────────────────────────────────────────┘             ║
+║              . . .  more blocks  . . .                       ║
+║                                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║    ONE FILE  ────▶  THREE CONSUMERS                          ║
+║                                                              ║
+║    ┌──────────┐   ┌──────────────┐   ┌──────────────────┐   ║
+║    │  HUMANS  │   │   AGENTS     │   │    VIEWERS       │   ║
+║    │          │   │   (LLMs)     │   │                  │   ║
+║    │  Clean   │   │              │   │  Sentiment       │   ║
+║    │  Markdown│   │  Typed JSON  │   │  colors          │   ║
+║    │  body    │   │  headers     │   │                  │   ║
+║    │          │   │              │   │  Block-type      │   ║
+║    │  Familiar│   │  Tool-call   │   │  filters         │   ║
+║    │  UX      │   │  API         │   │                  │   ║
+║    │          │   │              │   │  Tag             │   ║
+║    │          │   │              │   │  navigation      │   ║
+║    └──────────┘   └──────────────┘   └──────────────────┘   ║
+║                                                              ║
+║   Write once. Structure everywhere. No ETL required.         ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+</div>
+
+<br>
 
 ---
 

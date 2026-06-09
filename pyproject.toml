@@ -22,8 +22,8 @@ smd = "semantic_markdown.__main__:main"
 smd-mcp = "semantic_markdown.harness:main"
 
 [project.urls]
-homepage = "https://github.com/your-org/semantic-markdown"
-documentation = "https://github.com/your-org/semantic-markdown/blob/main/SPECIFICATION.md"
+homepage = "https://github.com/finxsight/semantic-markdown"
+documentation = "https://github.com/finxsight/semantic-markdown/blob/main/SPECIFICATION.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
