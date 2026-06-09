@@ -296,6 +296,14 @@ v0.2 — Draft specification with reference Python implementation and browser vi
 - 🖥️ [Viewer](viewer.html)
 - 📚 [Examples](examples/)
 
+### Try the Viewer
+
+**Online**: Enable GitHub Pages in [repo settings](https://github.com/finxsight/semantic-markdown/settings/pages) → deploy from `master` branch, `/ (root)` → visit `finxsight.github.io/semantic-markdown`
+
+**Local**: `python -m http.server 8080` → open `http://localhost:8080/viewer.html`
+
+The viewer loads `.smd` files from `examples/` and renders them with sentiment coloring, block-type filters, tag navigation, and topic highlighting.
+
 ---
 
 ## Citation
@@ -305,7 +313,7 @@ v0.2 — Draft specification with reference Python implementation and browser vi
   title = {Semantic Markdown: A Block-Addressable Document Format
            for Human-Agent Collaboration},
   year = {2026},
-  url = {https://github.com/your-org/semantic-markdown}
+  url = {https://github.com/finxsight/semantic-markdown}
 }
 ```
 

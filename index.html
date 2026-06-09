@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMD Viewer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+       background: #f0f2f5; color: #1a1a2e; height: 100vh; overflow: hidden; }
+
+.app { display: flex; height: 100vh; }
+
+/* ---- SIDEBAR ---- */
+.sidebar { width: 290px; background: #1a1a2e; color: white; display: flex;
+           flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.sidebar-header { padding: 20px 18px; border-bottom: 1px solid #2a2a44; }
+.sidebar-header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.sidebar-header .ver { font-size: 11px; color: #666; margin-top: 2px; }
+
+.templates-section { padding: 16px 18px; border-bottom: 1px solid #2a2a44; }
+.templates-section h3 { font-size: 11px; text-transform: uppercase; color: #777;
+    letter-spacing: 1.5px; margin-bottom: 10px; }
+.template-btn { display: block; width: 100%; padding: 10px 12px; margin-bottom: 6px;
+    background: #252540; border: 1px solid #333; border-radius: 6px; color: #ccc;
+    cursor: pointer; text-align: left; font-size: 13px; transition: all 0.2s; }
+.template-btn:hover { background: #2d2d50; border-color: #555; color: white; }
+.template-btn.active { background: #4a6cf7; border-color: #4a6cf7; color: white;
+    font-weight: 600; }
+.template-btn .icon { margin-right: 6px; }
+
+.filter-section { padding: 14px 18px; }
+.filter-chip { display: inline-block; padding: 4px 10px; margin: 3px 4px 3px 0;
+    background: #2a2a3f; border-radius: 12px; font-size: 11px; cursor: pointer;
+    transition: background 0.15s; user-select: none; color: #bbb; }
+.filter-chip:hover { background: #3a3a55; color: #ddd; }
+.filter-chip:active { background: #2a2a3f; }
+.filter-group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: #777; margin: 10px 0 4px 0; }
+
+/* ---- VIEW TOGGLE ---- */
+.view-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; flex-shrink: 0; }
+.view-toggle-btn { padding: 7px 16px; border: none; background: #fff; color: #555; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+.view-toggle-btn + .view-toggle-btn { border-left: 1px solid #ddd; }
+.view-toggle-btn:hover { background: #f0f2f5; }
+.view-toggle-btn.active { background: #4a6cf7; color: white; }
+
+/* ---- MAIN ---- */
+.main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+.main-header { margin-bottom: 20px; }
+.main-header h2 { font-size: 22px; font-weight: 700; }
+.main-header .meta-line { color: #777; font-size: 12px; margin-top: 4px; }
+.active-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+    min-height: 0; }
+.active-filter { padding: 4px 12px; background: #4a6cf7; color: white;
+    border-radius: 10px; font-size: 11px; cursor: pointer; }
+.active-filter:hover { background: #3451c4; }
+
+/* ---- BLOCK CARDS ---- */
+.smd-block { background: white; border-radius: 10px; margin-bottom: 18px;
+    border: 1px solid #e2e4e8; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: opacity 0.2s; }
+.smd-block.hidden { display: none; }
+@keyframes pulse-highlight {
+  0% { box-shadow: 0 0 0 0 rgba(74,108,247,0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(74,108,247,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,108,247,0); }
+}
+.smd-block.pulse { animation: pulse-highlight 1.2s ease-out; }
+.smd-block-header { display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; background: #fafbfc; border-bottom: 1px solid #eee; }
+.sentiment-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(0,0,0,0.1); }
+.block-id { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    font-weight: 600; color: #4a6cf7; }
+.speaker { font-size: 13px; color: #444; font-weight: 500; }
+.type-badge { font-size: 10px; padding: 3px 10px; background: #e8ecf2;
+    border-radius: 8px; color: #555; text-transform: uppercase; margin-left: auto;
+    font-weight: 600; letter-spacing: 0.5px; }
+.tags-row { padding: 8px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-badge { padding: 3px 10px; background: #eef1ff; border-radius: 10px;
+    font-size: 11px; color: #4a6cf7; cursor: pointer; font-weight: 500;
+    transition: background 0.15s; }
+.tag-badge:hover { background: #dce0ff; }
+.summary-box { padding: 10px 16px; font-size: 13px; color: #555;
+    background: linear-gradient(135deg, #fefdf8, #fdfcee); border-bottom: 1px solid #f0edc0;
+    font-style: italic; line-height: 1.5; }
+.highlights-box { padding: 10px 16px; }
+.highlight-item { padding: 7px 12px; margin: 5px 0; background: #f8f9fb;
+    border-radius: 6px; font-size: 13px; display: flex; align-items: center;
+    gap: 8px; line-height: 1.4; }
+.highlight-bar { width: 4px; height: 24px; border-radius: 2px; flex-shrink: 0; }
+.body-text { padding: 16px; font-size: 14px; line-height: 1.75; color: #333; }
+.body-text p { margin-bottom: 10px; }
+mark.inline-highlight { border-radius: 3px; padding: 1px 3px;
+  color: inherit; background-color: transparent; }
+mark.inline-highlight:hover { filter: brightness(0.92); }
+.takeaways-box { padding: 12px 16px; background: #f2faf5; border-top: 1px solid #d4edd9; }
+.takeaways-box strong { font-size: 11px; text-transform: uppercase; color: #2e7d32;
+    letter-spacing: 1px; display: block; margin-bottom: 6px; }
+.takeaway { padding: 3px 0 3px 10px; font-size: 13px; color: #2e7d32; }
+.segment { padding: 10px 16px; font-size: 13px; border-top: 1px solid #eee; }
+.segment-label { font-size: 10px; text-transform: uppercase; color: #999;
+    letter-spacing: 1.5px; margin-bottom: 4px; display: block; }
+.segment pre { white-space: pre-wrap; font-family: inherit; color: #555; margin: 0; }
+.segment-thought { background: #fcf9ff; border-left: 3px solid #b088d0; }
+.segment-action_item { background: #fffaf5; border-left: 3px solid #f0a040; }
+.segment-html { background: #fff; }
+.html-widget { padding: 12px; overflow-x: auto; }
+.chart-heading { padding: 8px 16px 4px 16px; font-size: 14px; line-height: 1.4; color: #333; }
+.chart-heading h3 { margin: 0; font-size: 15px; }
+.chart-container { padding: 0 !important; border-top: none !important; }
+.chart-widget { padding: 0 !important; }
+
+.empty-state { text-align: center; padding: 80px 20px; color: #aaa; }
+.empty-state .big-icon { font-size: 48px; margin-bottom: 16px; }
+.no-results { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
+
+/* ---- COMPARE MODE ---- */
+.compare-header { display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; background: linear-gradient(135deg, #1a1a2e, #2a2a4e);
+    color: white; border-radius: 12px; margin-bottom: 20px; }
+.compare-header h2 { font-size: 18px; }
+.compare-header .period-badges { display: flex; gap: 10px; }
+.period-badge { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.period-badge.q1 { background: #4a6cf7; color: white; }
+.period-badge.q2 { background: #0f766e; color: white; }
+
+.topic-group { background: white; border-radius: 12px; margin-bottom: 28px;
+    border: 1px solid #e2e4e8; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.topic-group-header { padding: 14px 20px; background: #f8f9fb;
+    border-bottom: 2px solid #4a6cf7; display: flex; align-items: center;
+    gap: 10px; cursor: pointer; user-select: none; }
+.topic-group-header h3 { font-size: 15px; color: #1a1a2e; margin: 0; display: flex; align-items: center; gap: 8px; flex: 1; }
+.topic-group-header .topic-meta { font-size: 11px; color: #999; white-space: nowrap; }
+.topic-group-header .topic-chevron { transition: transform 0.3s; font-size: 12px; color: #888; }
+.topic-group.collapsed .topic-chevron { transform: rotate(-90deg); }
+.topic-group.collapsed .topic-body { display: none; }
+.topic-match-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    margin-left: 6px; font-weight: 600; }
+.topic-match-badge.exact { background: #e8f5e9; color: #2e7d32; }
+.topic-match-badge.q2only { background: #ccfbf1; color: #0f766e; }
+.topic-match-badge.q1only { background: #e3f2fd; color: #1565c0; }
+
+.topic-body { display: flex; gap: 0; }
+.compare-column { flex: 1; min-width: 0; padding: 8px; }
+.compare-column:first-child { border-right: 1px solid #eee; }
+.compare-column.q1-col { background: #fafbfe; }
+.compare-column.q2-col { background: #fafefc; }
+.compare-column-header { padding: 8px 14px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; margin: -8px -8px 8px -8px; }
+.compare-column.q1-col .compare-column-header { background: #eef1ff; color: #4a6cf7; }
+.compare-column.q2-col .compare-column-header { background: #ccfbf1; color: #0f766e; }
+.compare-column .empty-col { text-align: center; padding: 30px 20px; color: #ccc; font-size: 12px; font-style: italic; }
+
+/* Highlight cards */
+.hl-card { display: flex; margin: 4px 0; border-radius: 6px; overflow: hidden;
+    background: white; border: 1px solid #eee; transition: box-shadow 0.15s; }
+.hl-card:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.hl-card .hl-sentiment-bar { width: 4px; flex-shrink: 0; min-height: 100%; }
+.hl-card .hl-body { flex: 1; padding: 8px 10px; min-width: 0; }
+.hl-card .hl-text { font-size: 12.5px; line-height: 1.55; color: #2a2a3a; word-break: break-word; }
+.hl-card .hl-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: wrap; }
+.hl-card .hl-speaker { font-size: 10px; color: #888; font-weight: 500; background: #f0f2f5; padding: 1px 6px; border-radius: 3px; }
+.hl-card .hl-block-id { font-size: 10px; color: #aaa; font-family: monospace; }
+.hl-card .hl-score { font-size: 10px; font-weight: 700; margin-left: auto; }
+.hl-card-q1 .hl-sentiment-bar { background: #4a6cf7; }
+.hl-card-q2 .hl-sentiment-bar { background: #0f766e; }
+
+.compare-topics-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+
+/* Sidebar topic list */
+.sidebar-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: #888; padding: 0 4px 6px 4px; }
+.sidebar-topic-list { display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 320px); overflow-y: auto; }
+.sidebar-topic-chip { display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    font-size: 11.5px; line-height: 1.35; color: #555;
+    transition: all 0.15s; }
+.sidebar-topic-chip:hover { background: #eef1f8; }
+.sidebar-topic-chip.active { background: #4a6cf7; color: white; }
+.sidebar-topic-chip.active .sidebar-topic-count { background: rgba(255,255,255,0.25); color: white; }
+.sidebar-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sidebar-dot.exact { background: #4caf50; }
+.sidebar-dot.q1only { background: #4a6cf7; }
+.sidebar-dot.q2only { background: #0f766e; }
+.sidebar-topic-label { flex: 1; min-width: 0; word-break: break-word; }
+.sidebar-topic-count { font-size: 10px; background: #e8ecf2; color: #888;
+    padding: 1px 6px; border-radius: 8px; font-weight: 600; flex-shrink: 0; }
+
+/* Quick-filter segmented toggle (Q1 Only | Q2 Only | All) */
+.sidebar-quick-filters { display: flex; margin-bottom: 8px; padding: 0 2px; }
+.sidebar-quick-chip { flex: 1; text-align: center; padding: 5px 0; font-size: 10.5px; font-weight: 600;
+    cursor: pointer; color: #777; background: #f2f3f7; border: 1px solid #ddd;
+    transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.sidebar-quick-chip:first-child { border-radius: 6px 0 0 6px; }
+.sidebar-quick-chip:last-child { border-radius: 0 6px 6px 0; }
+.sidebar-quick-chip + .sidebar-quick-chip { border-left: none; }
+.sidebar-quick-chip:hover { background: #e4e7f0; }
+.sidebar-quick-chip.active { background: #4a6cf7; color: white; border-color: #4a6cf7; }
+.sidebar-quick-chip .sq-count { font-size: 9px; opacity: 0.65; font-weight: 500; }
+.compare-topic-chip { padding: 6px 14px; border-radius: 16px; font-size: 12px;
+    cursor: pointer; background: #e8ecf2; color: #555; border: 1px solid #ddd;
+    transition: all 0.2s; white-space: nowrap; }
+.compare-topic-chip:hover { background: #dce0f0; }
+.compare-topic-chip.active { background: #4a6cf7; color: white; border-color: #4a6cf7; }
+.compare-topic-chip .match-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+.compare-topic-chip .match-dot.exact { background: #4caf50; }
+
+/* Compare mode toggle */
+.compare-mode-toggle { display: inline-flex; background: #e8eaf0; border-radius: 8px; padding: 3px; margin-right: 10px; }
+.compare-mode-toggle button { border: none; padding: 4px 14px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; cursor: pointer; background: transparent; color: #777;
+    transition: all 0.2s; }
+.compare-mode-toggle button.active { background: white; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+/* Raw compare: two scrolling columns of full blocks */
+.compare-raw { display: flex; gap: 0; min-height: 70vh; }
+.compare-raw .raw-col { flex: 1; min-width: 0; overflow-y: auto; max-height: calc(100vh - 160px); padding: 8px; }
+.compare-raw .raw-col:first-child { border-right: 1px solid #ddd; }
+.compare-raw .raw-col-header { position: sticky; top: 0; z-index: 5; padding: 10px 14px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin: -8px -8px 8px -8px; }
+.compare-raw .q1-raw-col .raw-col-header { background: #eef1ff; color: #4a6cf7; border-bottom: 2px solid #4a6cf7; }
+.compare-raw .q2-raw-col .raw-col-header { background: #f0fdfa; color: #0f766e; border-bottom: 2px solid #0f766e; }
+.compare-raw .raw-block { margin: 8px 0; border: 1px solid #eee; border-radius: 8px; background: white; }
+.compare-raw .raw-block .smd-block-header { background: #fafbfc; border-bottom: 1px solid #eee; border-radius: 8px 8px 0 0; }
+.compare-raw .raw-block .block-id { font-family: monospace; font-size: 10px; color: #aaa; }
+.compare-raw .raw-block .speaker { font-size: 12px; font-weight: 600; color: #444; }
+.compare-raw .raw-block .block-type-tag { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
+    background: #e8ecf2; color: #666; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+.compare-raw .q1-raw-col .raw-block .block-type-tag { background: #e8ecf8; color: #4a6cf7; }
+.compare-raw .q2-raw-col .raw-block .block-type-tag { background: #ccfbf1; color: #0f766e; }
+
+/* Responsive compare */
+@media (max-width: 1024px) {
+  .topic-body { flex-direction: column; }
+  .compare-column:first-child { border-right: none; border-bottom: 1px solid #eee; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; max-height: 300px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>⬡ SMD Viewer</h1>
+      <div class="ver">Semantic Markdown v0.0</div>
+    </div>
+
+    <div class="templates-section">
+      <h3>Examples</h3>
+      <button class="template-btn active" onclick="loadPath('examples/Agilent_Transcript_1Q_2026.smd')">
+        <span class="icon">📊</span> Agilent Q1 FY26 Transcript
+      </button>
+      <button class="template-btn" onclick="loadPath('examples/Agilent_Transcript_2Q_2026.smd')">
+        <span class="icon">📊</span> Agilent Q2 FY26 Transcript
+      </button>
+      <button class="template-btn" onclick="loadPath('examples/AAPL_profile_with_chart.smd')">
+        <span class="icon">📈</span> AAPL Company Profile
+      </button>
+      <button class="template-btn" id="btn-compare" onclick="loadCompare()">
+        <span class="icon">🔄</span> Compare Q1 vs Q2
+      </button>
+    </div>
+
+    <div class="filter-section" id="filter-section">
+      <div id="tag-filters"></div>
+      <div id="sidebar-compare-topics" style="display:none;"></div>
+    </div>
+  </aside>
+
+  <!-- ====== MAIN CONTENT ====== -->
+  <main class="main" id="main-content">
+    <div class="main-header">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="flex:1;">
+          <h2 id="doc-title">Loading...</h2>
+          <div class="meta-line" id="doc-meta"></div>
+        </div>
+        <div class="view-toggle" id="view-toggle-group">
+          <button class="view-toggle-btn active" data-view="smd" id="btn-view-smd">📄 SMD</button>
+          <button class="view-toggle-btn" data-view="raw" id="btn-view-raw">📝 Raw</button>
+        </div>
+      </div>
+    </div>
+    <div class="active-filters" id="active-filters"></div>
+    <div id="blocks-container"></div>
+    <pre id="raw-view" style="display:none;background:#1a1a2e;color:#ccc;padding:24px;border-radius:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-x:auto;font-family:'SF Mono','Fira Code',monospace;"></pre>
+  </main>
+</div>
+
+<!-- ====== SMD PARSER (JS) ====== -->
+<script>
+// ---- Fuzzy text matching (client-side rapidfuzz) ----
+function levDist(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n; if (n === 0) return m;
+  let prev = new Uint16Array(n + 1), cur = new Uint16Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      cur[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j], cur[j-1], prev[j-1]);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+
+function fuzzRatio(a, b) {
+  const d = levDist(a.toLowerCase(), b.toLowerCase());
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? 100 : (1 - d / maxLen) * 100;
+}
+
+function findBestSpan(body, query) {
+  const qlen = query.length, blen = body.length;
+  if (qlen === 0 || blen === 0) return { start_char: 0, end_char: 0, score: 0 };
+
+  // Quick exact/contains check first
+  const lowerBody = body.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const exactIdx = lowerBody.indexOf(lowerQuery);
+  if (exactIdx !== -1) {
+    return { start_char: exactIdx, end_char: exactIdx + qlen, score: 1.0 };
+  }
+
+  const margin = 0.3;
+  const minWin = Math.max(5, Math.floor(qlen * (1 - margin)));
+  const maxWin = Math.min(blen, Math.ceil(qlen * (1 + margin)));
+  const winStep = Math.max(1, Math.floor((maxWin - minWin) / 8));
+
+  let bestScore = 0, bestStart = 0, bestEnd = 0;
+
+  for (let ws = minWin; ws <= maxWin; ws += winStep) {
+    const step = Math.max(1, Math.floor(ws / 3));
+    for (let start = 0; start + ws <= blen; start += step) {
+      const window = body.slice(start, start + ws);
+      const score = fuzzRatio(query, window);
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = start;
+        bestEnd = start + ws;
+      }
+    }
+  }
+
+  return { start_char: bestStart, end_char: bestEnd, score: bestScore / 100 };
+}
+
+// Annotate highlights with character positions (mutates header in-place)
+function annotateBlockHighlights(block, threshold = 0.55) {
+  const bodyText = block.body_text;
+  if (!bodyText) return;
+
+  const enr = block.header.enrichment || block.header.enrichments;
+  if (!enr) return;
+
+  const items = Array.isArray(enr) ? enr : [enr];
+  for (const item of items) {
+    if (!item || !Array.isArray(item.highlights)) continue;
+    for (const hl of item.highlights) {
+      if (!hl || typeof hl.text !== 'string') continue;
+      const span = findBestSpan(bodyText, hl.text);
+      if (span.score >= threshold) {
+        hl.start_char = span.start_char;
+        hl.end_char = span.end_char;
+        hl.match_score = Math.round(span.score * 1000) / 1000;
+      }
+    }
+  }
+}
+
+// ---- Minimal SMD Parser in JS ----
+function parseSMD(text) {
+  const entityStart = /^(?=@(?:document|block))/m;
+  const separator = /\n---\n/;
+  const fencedBlock = /```(\w*)\n([\s\S]*?)```/g;
+
+  const rawEntities = text.split(entityStart).filter(s => s.trim());
+  const blocks = [];
+  let docHeader = null;
+
+  for (const raw of rawEntities) {
+    const isDoc = raw.trimStart().startsWith('@document');
+    const isBlock = raw.trimStart().startsWith('@block');
+    if (!isDoc && !isBlock) continue;
+
+    const sepMatch = separator.exec(raw);
+    if (!sepMatch) continue;
+
+    const firstNewline = raw.indexOf('\n');
+    let headerText = raw.substring(firstNewline, sepMatch.index).trim();
+    let header;
+    try { header = JSON.parse(headerText); }
+    catch(e) { continue; }
+
+    const bodyText = raw.substring(sepMatch.index + sepMatch[0].length).trim();
+
+    if (isDoc) {
+      docHeader = header;
+    } else {
+      // Parse body segments
+      const segments = [];
+      let lastEnd = 0;
+      let match;
+      while ((match = fencedBlock.exec(bodyText)) !== null) {
+        if (match.index > lastEnd) {
+          const text = bodyText.substring(lastEnd, match.index).trim();
+          if (text) segments.push({ type: 'markdown', content: text });
+        }
+        segments.push({ type: match[1] || 'unknown', content: match[2] });
+        lastEnd = match.index + match[0].length;
+      }
+      if (lastEnd < bodyText.length) {
+        const text = bodyText.substring(lastEnd).trim();
+        if (text) segments.push({ type: 'markdown', content: text });
+      }
+
+      blocks.push({
+        block_id: header.block_id != null ? String(header.block_id) : '',
+        header,
+        raw_header: headerText,
+        body_text: bodyText,
+        segments,
+        get tags() { return this.header.tags || []; },
+        get type() { return this.header.type || this.header.block_type; },
+        get sentiment() {
+          const s = this.header.sentiment;
+          if (s === undefined || s === null) return null;
+          if (typeof s === 'number') return [{ excerpt: 'block-level', score: s }];
+          if (Array.isArray(s)) return s;
+          return null;
+        },
+        get highlights() {
+          const enr = this.header.enrichment || this.header.enrichments;
+          if (!enr) return [];
+          // enrichments can be an object {highlights:[...]} or an array [{highlights:[...]}, ...]
+          const items = Array.isArray(enr) ? enr : [enr];
+          const raw = [];
+          for (const item of items) {
+            if (item && Array.isArray(item.highlights)) {
+              for (const h of item.highlights) {
+                const obj = typeof h === 'string' ? { text: h } : { ...h };
+                if (item.topic) obj.topic = item.topic;
+                raw.push(obj);
+              }
+            }
+          }
+          return raw;
+        },
+        get enrichment() {
+          return this.header.enrichment || this.header.enrichments || {};
+        },
+        get key_takeaways() {
+          const enr = this.header.enrichment || this.header.enrichments;
+          if (!enr) return [];
+          const items = Array.isArray(enr) ? enr : [enr];
+          const results = [];
+          for (const item of items) {
+            if (item.key_takeaways) results.push(...item.key_takeaways);
+            if (item.key_takeaway) results.push(item.key_takeaway);
+          }
+          return results;
+        }
+      });
+      annotateBlockHighlights(blocks[blocks.length - 1]);
+    }
+  }
+
+  return { docHeader, blocks };
+}
+
+// ---- Sentiment color ----
+function hexToRgba(hex, opacity) {
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  const r = parseInt(hex.substring(0,2), 16);
+  const g = parseInt(hex.substring(2,4), 16);
+  const b = parseInt(hex.substring(4,6), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+function sentimentColor(score) {
+  // Handle [-1, 1] range: negative→red, zero→neutral, positive→green
+  const s = Math.max(-1, Math.min(1, score));
+  if (s < 0) {
+    const t = Math.abs(s); // 0 to 1 for negative
+    return `rgb(${Math.round(220 - t*60)},${Math.round(80 - t*30)},${Math.round(50 + t*20)})`;
+  } else if (s === 0) {
+    return 'rgb(180,180,180)';
+  } else {
+    const t = s; // 0 to 1 for positive
+    return `rgb(${Math.round(80 - t*30)},${Math.round(180 + t*40)},${Math.round(50 + t*30)})`;
+  }
+}
+
+function sentimentBg(score) {
+  const s = Math.max(-1, Math.min(1, score));
+  if (s < 0) {
+    const t = Math.abs(s);
+    return `rgba(255,${Math.round(220 - t*40)},${Math.round(220 - t*40)},0.15)`;
+  } else if (s === 0) {
+    return 'rgba(240,240,240,0.10)';
+  } else {
+    const t = s;
+    return `rgba(${Math.round(220 - t*40)},255,${Math.round(220 - t*40)},0.15)`;
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;');
+}
+
+// ---- Unified tree flattening ----
+// Recursively flatten an object/array into leaf entries:
+// {path: "enrichments.0.topic", value: "Faster growth", parent: <the direct container>}
+function flattenTree(root, prefix) {
+  const leaves = [];
+  if (root == null) return leaves;
+  if (Array.isArray(root)) {
+    for (let i = 0; i < root.length; i++) {
+      for (const leaf of flattenTree(root[i], prefix + '.' + i)) {
+        leaves.push(leaf);
+      }
+    }
+  } else if (typeof root === 'object') {
+    for (const key of Object.keys(root)) {
+      const val = root[key];
+      const p = prefix ? prefix + '.' + key : key;
+      if (val != null && (Array.isArray(val) || typeof val === 'object')) {
+        for (const leaf of flattenTree(val, p)) {
+          leaves.push(leaf);
+        }
+      }
+      leaves.push({ path: p, value: val, parent: root });
+    }
+  }
+  return leaves;
+}
+
+// Check if a concrete flattened path (e.g. "enrichments.0.topic") matches a
+// filter/style pattern with [] wildcards (e.g. "enrichments.[].topic").
+// Also returns the leaf.parent for style-to-highlight mapping.
+function leafMatchesPattern(leafPath, pattern) {
+  const lp = leafPath.split('.');
+  const pp = pattern.split('.');
+  let li = 0, pi = 0;
+  while (li < lp.length && pi < pp.length) {
+    if (pp[pi] === '[]') {
+      // []= matches one numeric segment
+      if (!/^\d+$/.test(lp[li])) return false;
+      li++; pi++;
+    } else if (lp[li] === pp[pi]) {
+      li++; pi++;
+    } else {
+      return false;
+    }
+  }
+  return li === lp.length && pi === pp.length;
+}
+
+// Extract filter-tag values from a flattened tree given a pattern path.
+function tagValuesFromTree(leaves, pattern) {
+  const vals = new Set();
+  for (const leaf of leaves) {
+    if (leafMatchesPattern(leaf.path, pattern)) {
+      if (leaf.value !== undefined && leaf.value !== null && leaf.value !== '') {
+        vals.add(String(leaf.value));
+      }
+    }
+  }
+  return [...vals];
+}
+
+// Collect all filter tags for a block from the doc's filter definitions.
+function collectBlockFilterTags(leaves, filterDefs) {
+  const tags = [];
+  for (const fd of filterDefs) {
+    tags.push(...tagValuesFromTree(leaves, fd.key));
+  }
+  return [...new Set(tags)];
+}
+
+function simpleMD(text) {
+  const lines = text.split('\n');
+  const out = [];
+  let paraLines = [];
+  function flushP() {
+    if (paraLines.length === 0) return;
+    let p = paraLines.join('\n');
+    p = p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    out.push(`<p>${p.replace(/\n/g, '<br>')}</p>`);
+    paraLines = [];
+  }
+  for (const line of lines) {
+    // heading
+    const hMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (hMatch) {
+      flushP();
+      const level = hMatch[1].length;
+      let h = hMatch[2];
+      h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      out.push(`<h${level}>${h}</h${level}>`);
+      continue;
+    }
+    // horizontal rule
+    if (/^[-*_]{3,}$/.test(line.trim())) {
+      flushP();
+      out.push('<hr>');
+      continue;
+    }
+    // blank line = paragraph break
+    if (line.trim() === '') {
+      flushP();
+      continue;
+    }
+    paraLines.push(esc(line));
+  }
+  flushP();
+  return out.join('');
+}
+
+function simpleMDInline(text) {
+  let t = esc(text);
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return t.replace(/\n/g, '<br>');
+}
+
+function renderBodyWithHighlights(bodyText, highlights, hlStyleArr) {
+  // Filter highlights with character position annotations
+  const positioned = highlights
+    .filter(h => h.start_char !== undefined && h.end_char !== undefined && h.start_char < h.end_char)
+    .sort((a, b) => a.start_char - b.start_char);
+
+  if (positioned.length === 0 || !bodyText) {
+    return `<div class="body-text">${simpleMD(bodyText)}</div>`;
+  }
+
+  // Merge overlapping/adjacent highlights, tracking original indices for style lookup
+  const merged = [];
+  for (const hl of positioned) {
+    const origIdx = highlights.indexOf(hl);
+    if (merged.length === 0 || hl.start_char > merged[merged.length - 1].end_char) {
+      merged.push({ ...hl, _origIdx: origIdx });
+    } else {
+      const last = merged[merged.length - 1];
+      last.end_char = Math.max(last.end_char, hl.end_char);
+      if (Math.abs(hl.sentiment) > Math.abs(last.sentiment)) {
+        last.sentiment = hl.sentiment;
+        last._origIdx = origIdx;
+      }
+    }
+  }
+
+  // Split body text into paragraphs, preserving offsets
+  const paras = bodyText.split('\n\n');
+  const paraOffsets = [];
+  let offset = 0;
+  for (const para of paras) {
+    paraOffsets.push(offset);
+    offset += para.length + 2; // +2 for the \n\n separator
+  }
+
+  const paraHtmls = paras.map((para, pi) => {
+    const paraStart = paraOffsets[pi];
+    const paraEnd = paraStart + para.length;
+
+    // Find highlights that overlap this paragraph
+    const paraHls = merged.filter(h => h.start_char < paraEnd && h.end_char > paraStart);
+    if (paraHls.length === 0) {
+      return `<p>${simpleMDInline(para)}</p>`;
+    }
+
+    // Build segments within this paragraph
+    const segments = [];
+    let cursor = paraStart;
+    for (const hl of paraHls) {
+      const hlStart = Math.max(hl.start_char, paraStart);
+      const hlEnd = Math.min(hl.end_char, paraEnd);
+      if (hlStart > cursor) {
+        segments.push({ text: bodyText.slice(cursor, hlStart), highlighted: false });
+      }
+      const idx = hl._origIdx;
+      const hStyle = idx >= 0 ? hlStyleArr[idx] : null;
+      const hBg = highlight_background(hStyle, hl.sentiment);
+      segments.push({
+        text: bodyText.slice(hlStart, hlEnd),
+        highlighted: true,
+        style: hBg,
+        sentiment: hl.sentiment,
+        topic: hl.topic
+      });
+      cursor = hlEnd;
+    }
+    if (cursor < paraEnd) {
+      segments.push({ text: bodyText.slice(cursor, paraEnd), highlighted: false });
+    }
+
+    const segHtml = segments.map(seg => {
+      const md = simpleMDInline(seg.text);
+      if (seg.highlighted) {
+        const color = seg.sentiment !== null ? sentimentColor(seg.sentiment) : '#e8c840';
+        const parts = [];
+        if (seg.topic) parts.push(escAttr(seg.topic));
+        if (seg.sentiment !== null) parts.push(`sentiment: ${seg.sentiment.toFixed(2)}`);
+        const title = parts.join(' · ');
+        const bgStyle = seg.style
+          ? seg.style.replace(/background:/g, 'background-color:')
+          : (() => {
+              const m = color.match(/[\d.]+/g);
+              return m ? `background-color:rgba(${m[0]},${m[1]},${m[2]},0.35);` : '';
+            })();
+        return `<mark class="inline-highlight" style="${bgStyle}border-left:3px solid ${color};" title="${title}">${md}</mark>`;
+      }
+      return md;
+    }).join('');
+
+    return `<p>${segHtml}</p>`;
+  });
+
+  return `<div class="body-text">${paraHtmls.join('')}</div>`;
+}
+
+// ---- Load from disk via fetch (requires HTTP server) ----
+
+// ---- State ----
+let currentData = null;
+let currentTemplate = null;
+let currentRawText = '';
+let currentView = 'smd';
+
+// ---- Render ----
+function renderAll(data, rawText) {
+  currentData = data;
+  if (rawText !== undefined) currentRawText = rawText;
+  const { docHeader, blocks } = data;
+
+  // Show/hide toggle based on whether we have a loaded file vs template
+  const toggleGroup = document.getElementById('view-toggle-group');
+  if (currentTemplate === null && currentRawText) {
+    toggleGroup.style.display = '';
+  } else if (currentTemplate) {
+    toggleGroup.style.display = 'none';
+  } else {
+    toggleGroup.style.display = '';
+  }
+
+  // Free-form @document: try common title fields in sensible order
+  let title = 'SMD Document';
+  if (docHeader) {
+    if (docHeader.title) {
+      title = docHeader.title;
+    } else if (docHeader.company_name) {
+      const parts = [docHeader.company_name];
+      if (docHeader.fiscal_period) parts.push(docHeader.fiscal_period);
+      if (docHeader.year) parts.push(String(docHeader.year));
+      if (docHeader.fiscal_period || docHeader.year) parts.push('Earnings Call');
+      title = parts.join(' ');
+    } else if (docHeader.ticker) {
+      title = docHeader.ticker + (docHeader.type ? ' ' + docHeader.type : '');
+    } else if (docHeader.type) {
+      title = docHeader.type.replace(/_/g, ' ');
+    }
+  }
+  document.getElementById('doc-title').textContent = title;
+
+  const metaParts = [];
+  if (blocks.length) metaParts.push(`${blocks.length} blocks`);
+  if (docHeader && docHeader.type) metaParts.push(`type: ${docHeader.type}`);
+  document.getElementById('doc-meta').textContent = metaParts.join(' · ');
+
+  // 1. Capture tree: flatten each block header into {path, value, parent} leaves
+  const filterDefs = (docHeader && docHeader.filters) || [];
+  const styles = (docHeader && docHeader.styles) || [];
+  for (const block of blocks) {
+    capture_tree(block);
+  }
+
+  // 2. Fetch filters: extract tag values & assign _allTags to each block
+  const filterResult = fetch_filters(blocks, filterDefs);
+
+  // 3. Render filter chips grouped by label
+  const tagFilters = document.getElementById('tag-filters');
+  let html = '';
+  for (const grp of filterResult.groups) {
+    html += `<div class="filter-group-label">${esc(grp.label)}</div>`;
+    for (const v of grp.values) {
+      html += `<span class="filter-chip" data-tag="${esc(v)}">${esc(v)}</span>`;
+    }
+  }
+  tagFilters.innerHTML = html;
+
+  // 4. Run styles: match block-level & highlight styles against each block's tree
+  for (const block of blocks) {
+    block._styleResult = run_styles(block, styles);
+  }
+
+  // 5. Clear active filters & render blocks
+  document.getElementById('active-filters').innerHTML = '';
+  const container = document.getElementById('blocks-container');
+  container.innerHTML = blocks.map((b, i) => renderBlock(b, i)).join('');
+  initFilterChips();
+}
+
+
+// ============================================================
+// ---- Helpers: leaf value matching, color interpolation ----
+// ============================================================
+function leafValueMatches(leafValue, rule) {
+  const val = Number(leafValue);
+  const rv = Number(rule.value);
+  if (rule.fn === 'lte') return val <= rv;
+  if (rule.fn === 'gte') return val >= rv;
+  if (rule.fn === 'lt')  return val < rv;
+  if (rule.fn === 'gt')  return val > rv;
+  if (rule.fn === 'eq')  return String(leafValue) === String(rule.value);
+  return String(leafValue) === String(rule.value);
+}
+
+function shadeBetween(hexA, hexB, t) {
+  function parse(h) {
+    h = h.replace(/^#/, '');
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return [parseInt(h.substring(0,2),16), parseInt(h.substring(2,4),16), parseInt(h.substring(4,6),16)];
+  }
+  const a = parse(hexA), b = parse(hexB);
+  const r = Math.round(a[0] + (b[0]-a[0]) * t);
+  const g = Math.round(a[1] + (b[1]-a[1]) * t);
+  const bl = Math.round(a[2] + (b[2]-a[2]) * t);
+  const rHex = r.toString(16).padStart(2,'0');
+  const gHex = g.toString(16).padStart(2,'0');
+  const bHex = bl.toString(16).padStart(2,'0');
+  return `#${rHex}${gHex}${bHex}`;
+}
+
+// ============================================================
+// ---- Tree capture: flatten block header into path/value/parent leaves ----
+// ============================================================
+function capture_tree(block) {
+  block._leaves = flattenTree(block.header, '');
+}
+
+// ============================================================
+// ---- Style runner: match ALL styles against a block's flattened tree ----
+// Returns { blockStyle, highlightMap }
+//   blockStyle: first matching block-level style (or null)
+//   highlightMap: Map<highlightObject, matchedStyle>
+// ============================================================
+function run_styles(block, styles) {
+  const leaves = block._leaves;
+  let blockStyle = null;
+  const highlightMap = new Map();
+
+  for (const s of styles) {
+    // Skip highlight styles in block-level matching
+    const isHlStyle = s.target === 'highlight' && s.match && s.match.key.includes('[]');
+
+    if (isHlStyle) {
+      // Match this highlight style against all leaves whose parent is a highlight object.
+      // Key by "enrIdx:hlIdx" so we can match copies of highlight objects later.
+      for (const leaf of leaves) {
+        if (leafMatchesPattern(leaf.path, s.match.key) && leafValueMatches(leaf.value, s.match)) {
+          const parts = leaf.path.split('.');
+          let enrIdx = -1, hlIdx = -1;
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i] === 'highlights' && i + 1 < parts.length) hlIdx = parseInt(parts[i + 1]);
+            if (parts[i] === 'enrichments' && i + 1 < parts.length) enrIdx = parseInt(parts[i + 1]);
+          }
+          if (enrIdx >= 0 && hlIdx >= 0) {
+            highlightMap.set(`${enrIdx}:${hlIdx}`, s);
+          }
+          break; // first match wins for this style
+        }
+      }
+    } else if (!blockStyle) {
+      // Block-level style: check if any leaf matches
+      const rule = s.match;
+      if (!rule) continue;
+      for (const leaf of leaves) {
+        if (leafMatchesPattern(leaf.path, rule.key) && leafValueMatches(leaf.value, rule)) {
+          blockStyle = s;
+          break;
+        }
+      }
+    }
+  }
+
+  return { blockStyle, highlightMap };
+}
+
+// Get the CSS background string for a block-level style
+function block_background(block, style) {
+  if (!style) return '';
+  if (style.background) {
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(style.background, op)};`;
+  }
+  if (style.background_shade && Array.isArray(style.background_shade) && style.background_shade.length === 2) {
+    // Find the leaf value for the shade interpolation
+    const leaf = block._leaves.find(l => leafMatchesPattern(l.path, style.match.key));
+    if (!leaf) return '';
+    const val = Number(leaf.value);
+    const rule = style.match;
+    let t = 0;
+    if (rule.fn === 'lte') t = 1 - (val / Number(rule.value));
+    else if (rule.fn === 'gte') t = (val - Number(rule.value)) / (1 - Number(rule.value));
+    else t = 0.5;
+    t = Math.max(0, Math.min(1, t));
+    const color = shadeBetween(style.background_shade[0], style.background_shade[1], t);
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(color, op)};`;
+  }
+  return '';
+}
+
+// Get the CSS background string for a highlight-level style + value
+function highlight_background(style, val) {
+  if (!style) return '';
+  if (style.background) {
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(style.background, op)};`;
+  }
+  if (style.background_shade && Array.isArray(style.background_shade) && style.background_shade.length === 2) {
+    const rule = style.match;
+    let t = 0;
+    if (rule.fn === 'lt')  t = Math.abs(Number(val));
+    else if (rule.fn === 'gt') t = Number(val);
+    else if (rule.fn === 'lte') t = 1 - (Number(val) / Number(rule.value));
+    else if (rule.fn === 'gte') t = (Number(val) - Number(rule.value)) / (1 - Number(rule.value));
+    t = Math.max(0, Math.min(1, t));
+    const color = shadeBetween(style.background_shade[0], style.background_shade[1], t);
+    const op = style.background_opacity !== undefined ? style.background_opacity : 1;
+    return `background:${hexToRgba(color, op)};`;
+  }
+  return '';
+}
+// ============================================================
+// ---- Filter extraction: collect filter tags from all blocks ----
+// ============================================================
+function fetch_filters(blocks, filterDefs) {
+  const groups = [];
+  for (const fd of filterDefs) {
+    const vals = [...new Set(blocks.flatMap(b => tagValuesFromTree(b._leaves, fd.key)))].sort();
+    if (vals.length > 0) {
+      groups.push({ key: fd.key, label: fd.label, values: vals });
+    }
+  }
+  for (const block of blocks) {
+    block._allTags = collectBlockFilterTags(block._leaves, filterDefs);
+  }
+  return { groups };
+}
+
+function renderBlock(block, index) {
+  const { blockStyle, highlightMap } = block._styleResult;
+
+  // Sentiment (for background fallback)
+  const sentiment = block.sentiment;
+  let sentimentScore = null;
+  if (Array.isArray(sentiment) && sentiment.length > 0) {
+    sentimentScore = sentiment[0].score;
+  }
+
+  let bgStyle = block_background(block, blockStyle);
+  if (!bgStyle && sentimentScore !== null) {
+    bgStyle = `background:${sentimentBg(sentimentScore)};`;
+  }
+
+  // Highlights: flatten enrichments with index-based style lookup.
+  // The getter returns copies so we can't use object-reference Map keys;
+  // instead run_styles keys styles by "enrIdx:hlIdx".
+  const allHighlights = [];
+  const hlStyleArr = [];  // parallel array of matched styles (or null)
+  const enrRaw = block.header.enrichment || block.header.enrichments;
+  if (enrRaw) {
+    const enrItems = Array.isArray(enrRaw) ? enrRaw : [enrRaw];
+    for (let ei = 0; ei < enrItems.length; ei++) {
+      const item = enrItems[ei];
+      if (item && Array.isArray(item.highlights)) {
+        for (let hi = 0; hi < item.highlights.length; hi++) {
+          const h = item.highlights[hi];
+          const obj = typeof h === 'string' ? { text: h } : { ...h };
+          if (item.topic) obj.topic = item.topic;
+          allHighlights.push(obj);
+          hlStyleArr.push(highlightMap.get(`${ei}:${hi}`) || null);
+        }
+      }
+    }
+  }
+  const positionedHighlights = allHighlights.filter(
+    h => h.start_char !== undefined && h.end_char !== undefined && h.start_char < h.end_char
+  );
+  const unpositionedHighlights = allHighlights.filter(
+    h => h.start_char === undefined || h.end_char === undefined || h.start_char >= h.end_char
+  );
+  const highlightsHtml = unpositionedHighlights.length ? `
+    <div class="highlights-box">
+      ${unpositionedHighlights.map((h, i) => {
+        // find the original index in allHighlights for style lookup
+        const origIdx = allHighlights.indexOf(h);
+        const hScore = h.sentiment;
+        const color = hScore !== null ? sentimentColor(hScore) : '#e8c840';
+        const hStyle = origIdx >= 0 ? hlStyleArr[origIdx] : null;
+        const hBg = highlight_background(hStyle, hScore);
+        const tooltipParts = [];
+        if (h.topic) tooltipParts.push(h.topic);
+        if (hScore !== null) tooltipParts.push(`sentiment: ${hScore.toFixed(2)}`);
+        const tooltip = tooltipParts.join(' · ');
+        return `<div class="highlight-item" style="${hBg}" title="${escAttr(tooltip)}">
+          <span class="highlight-bar" style="background:${color};${hBg ? 'border-radius:3px;' : ''}"></span>
+          ${esc(h.text || h.excerpt || '')}
+          ${hScore !== null ? `<span style="font-size:10px;color:${color};margin-left:auto;font-weight:600;">${hScore.toFixed(2)}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Summary
+  const enr = block.enrichment;
+  const summaryHtml = enr.summary
+    ? `<div class="summary-box">${esc(enr.summary)}</div>` : '';
+
+  // Key takeaways
+  const takeaways = block.key_takeaways || [];
+  const takeawaysHtml = takeaways.length ? `
+    <div class="takeaways-box">
+      <strong>Key Takeaways</strong>
+      ${takeaways.map(kt => {
+        const text = typeof kt === 'string' ? kt : (kt.text || '');
+        return `<div class="takeaway">→ ${esc(text)}</div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Render ALL segments in their original order to preserve SMD author intent.
+  // When there are no segments at all, fall back to raw body_text.
+  const isChart = block.type === 'chart';
+  const hasAnySegments = block.segments.length > 0;
+  const contentHtml = hasAnySegments
+    ? block.segments.map(s => {
+        if (s.type === 'markdown') {
+          // Chart blocks: compact heading with minimal padding
+          if (isChart) {
+            return `<div class="chart-heading">${simpleMD(s.content)}</div>`;
+          }
+          return renderBodyWithHighlights(s.content, allHighlights, hlStyleArr);
+        }
+        // html fenced blocks: render directly to allow widgets/charts.
+        // Important: we render the full HTML (including <script> tags) so the script
+        // remains in its original DOM position. The TradingView loader script uses
+        // `script.parentNode` to decide where to inject the chart iframe, so the
+        // script MUST stay inside its original container (e.g. inside
+        // .tradingview-widget-container) for the chart to mount correctly.
+        // After innerHTML is set, scripts don't auto-execute; we force execution
+        // by replacing each <script> with a fresh clone, which preserves attributes
+        // and ensures the script runs in its original DOM position.
+        if (s.type === 'html') {
+          const widgetId = 'hw-' + Math.random().toString(36).slice(2, 8);
+          const isChart = block.type === 'chart';
+          const wrapperStyle = isChart ? ' style="height:620px;"' : '';
+          const wrapperClass = isChart ? 'html-widget chart-widget' : 'html-widget';
+          const segmentClass = isChart ? 'segment segment-html chart-container' : 'segment segment-html';
+          // Build the markup; do NOT strip the <script> tags.
+          setTimeout(() => {
+            const root = document.getElementById(widgetId);
+            if (!root) return;
+            // Find every <script> in the rendered subtree and re-create it
+            // in place to force execution while keeping its DOM position.
+            const scripts = Array.from(root.querySelectorAll('script'));
+            scripts.forEach(oldScript => {
+              const newScript = document.createElement('script');
+              // Copy attributes (src, async, type, etc.)
+              for (const attr of oldScript.attributes) {
+                newScript.setAttribute(attr.name, attr.value);
+              }
+              if (oldScript.textContent) {
+                newScript.textContent = oldScript.textContent;
+              }
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+          }, 0);
+          return `<div class="${segmentClass}"><div class="${wrapperClass}" id="${widgetId}"${wrapperStyle}>${s.content}</div></div>`;
+        }
+        return `
+        <div class="segment segment-${esc(s.type)}">
+          <span class="segment-label">${esc(s.type)}</span>
+          <pre>${esc(s.content)}</pre>
+        </div>`;
+      }).join('')
+    : (block.body_text
+        ? renderBodyWithHighlights(block.body_text, allHighlights, hlStyleArr)
+        : '');
+
+  return `
+    <div class="smd-block" id="block-${esc(block.block_id)}"
+         data-block-id="${esc(block.block_id)}"
+         data-tags='${JSON.stringify(block._allTags || [])}'
+         style="${bgStyle}">
+      ${summaryHtml}
+      ${highlightsHtml}
+      ${contentHtml}
+      ${takeawaysHtml}
+    </div>`;
+}
+
+// ---- Filtering ----
+const tagScrollState = {};  // tag -> current scroll index
+
+function getVisibleBlocks() {
+  return Array.from(document.querySelectorAll('.smd-block:not(.hidden)'));
+}
+
+function scrollToBlock(block) {
+  if (!block) return;
+  block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  block.classList.add('pulse');
+  setTimeout(() => block.classList.remove('pulse'), 1200);
+}
+
+function scrollToNextTagBlock(tag) {
+  const visible = getVisibleBlocks().filter(b => {
+    const tags = JSON.parse(b.dataset.tags || '[]');
+    return tags.includes(tag);
+  });
+  if (visible.length === 0) return;
+
+  let idx = tagScrollState[tag] || 0;
+  if (idx >= visible.length) idx = 0;
+  scrollToBlock(visible[idx]);
+  tagScrollState[tag] = idx + 1;
+  if (tagScrollState[tag] >= visible.length) tagScrollState[tag] = 0;
+}
+
+function applyFilters() {
+  const checked = document.querySelectorAll('#tag-filters input:checked');
+  const activeTags = Array.from(checked).map(c => c.value);
+
+  for (const k of Object.keys(tagScrollState)) {
+    if (!activeTags.includes(k)) delete tagScrollState[k];
+  }
+
+  const afDiv = document.getElementById('active-filters');
+  afDiv.innerHTML = activeTags.length === 0 ? '' : activeTags.map(t =>
+    `<span class="active-filter" onclick="removeFilter('${esc(t)}')">${esc(t)} &times;</span>`
+  ).join('');
+
+  const blocks = document.querySelectorAll('.smd-block');
+  let visible = 0;
+  blocks.forEach(block => {
+    const blockTags = JSON.parse(block.dataset.tags || '[]');
+    const match = activeTags.length === 0 || activeTags.some(t => blockTags.includes(t));
+    block.classList.toggle('hidden', !match);
+    if (match) visible++;
+  });
+
+  let nr = document.getElementById('no-results');
+  if (visible === 0 && activeTags.length > 0) {
+    if (!nr) {
+      nr = document.createElement('div');
+      nr.id = 'no-results';
+      nr.className = 'no-results';
+      nr.textContent = 'No blocks match the selected tags.';
+      document.getElementById('blocks-container').appendChild(nr);
+    }
+    nr.style.display = '';
+  } else if (nr) {
+    nr.style.display = 'none';
+  }
+}
+
+function toggleTag(tag) {
+  const chip = document.querySelector(`#tag-filters input[value="${tag}"]`);
+  if (chip) {
+    const wasChecked = chip.checked;
+    chip.checked = !chip.checked;
+    applyFilters();
+    if (!wasChecked) {
+      scrollToNextTagBlock(tag);
+    }
+  }
+}
+
+function removeFilter(tag) {
+  const chip = document.querySelector(`#tag-filters input[value="${tag}"]`);
+  if (chip) chip.checked = false;
+  delete tagScrollState[tag];
+  applyFilters();
+}
+
+function initFilterChips() {
+  document.querySelectorAll('#tag-filters .filter-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollToNextTagBlock(chip.getAttribute('data-tag'));
+    });
+  });
+}
+
+// ---- File loading ----
+function loadPath(path) {
+  if (!path) return;
+
+  fetch(path)
+    .then(r => { if (!r.ok) throw new Error(r.status + ' ' + r.statusText); return r.text(); })
+    .then(text => {
+      const data = parseSMD(text);
+      if (!data.blocks.length) {
+        alert('No valid @block entities found in ' + path);
+        return;
+      }
+      document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+      const exampleBtns = document.querySelectorAll('.template-btn');
+      exampleBtns.forEach(b => {
+        if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(path)) {
+          b.classList.add('active');
+        }
+      });
+      currentTemplate = null;
+      setView('smd');
+      // Hide compare sidebar, show normal filters
+      document.getElementById('sidebar-compare-topics').style.display = 'none';
+      document.getElementById('filter-section').style.display = '';
+      renderAll(data, text);
+    })
+    .catch(err => {
+      alert('Failed to load: ' + err.message + '\n\nRun a local server to view .smd files:\n  python3 -m http.server 8080\nThen open http://localhost:8080/viewer.html');
+    });
+}
+
+// ============================================================
+// ---- COMPARE MODE: Q1 vs Q2 (dynamic, highlight-level) ----
+// ============================================================
+// All topic pairing is driven by document-level block searches.
+// No hardcoded map — topics match by exact string equality.
+
+// Extract all highlights from a document, grouped by topic.
+// Each highlight carries its source block's speaker + block_id.
+function extractTopicHighlights(data) {
+  const byTopic = new Map(); // topic → [{text, sentiment, speaker, blockId, blockType}]
+  for (const block of data.blocks) {
+    const speakerMatch = block.body_text.match(/^\*\*(.+?)\*\*:\s*/);
+    const speaker = speakerMatch ? speakerMatch[1] : '';
+    const enrRaw = block.header.enrichment || block.header.enrichments;
+    const items = Array.isArray(enrRaw) ? enrRaw : (enrRaw ? [enrRaw] : []);
+    for (const item of items) {
+      if (!item || !item.topic) continue;
+      const topic = item.topic;
+      const highlights = Array.isArray(item.highlights) ? item.highlights : [];
+      for (const h of highlights) {
+        if (!h) continue;
+        const hl = typeof h === 'string' ? { text: h } : { ...h };
+        if (!hl.text && !hl.excerpt) continue;
+        if (!byTopic.has(topic)) byTopic.set(topic, []);
+        byTopic.get(topic).push({
+          text: hl.text || hl.excerpt || '',
+          sentiment: hl.sentiment,
+          speaker: speaker,
+          blockId: block.block_id,
+          blockType: block.type || 'block'
+        });
+      }
+    }
+  }
+  return byTopic;
+}
+
+// Build topic groups: auto-pair by exact topic name
+function buildCompareTopics(q1Data, q2Data) {
+  const q1ByTopic = extractTopicHighlights(q1Data);
+  const q2ByTopic = extractTopicHighlights(q2Data);
+
+  const allTopics = new Set([...q1ByTopic.keys(), ...q2ByTopic.keys()]);
+  const topics = [];
+
+  for (const topic of allTopics) {
+    const inQ1 = q1ByTopic.has(topic);
+    const inQ2 = q2ByTopic.has(topic);
+    const match = inQ1 && inQ2 ? 'exact' : inQ1 ? 'q1only' : 'q2only';
+    topics.push({
+      topic: topic,
+      match: match,
+      q1Highlights: q1ByTopic.get(topic) || [],
+      q2Highlights: q2ByTopic.get(topic) || []
+    });
+  }
+
+  // Sort: paired first, then q1only, then q2only
+  topics.sort((a, b) => {
+    const order = { exact: 0, q1only: 1, q2only: 2 };
+    if (order[a.match] !== order[b.match]) return order[a.match] - order[b.match];
+    return a.topic.localeCompare(b.topic);
+  });
+
+  return topics;
+}
+
+// Render a single highlight card — compact, with sentiment bar
+function renderHighlightCard(hl, side) {
+  const score = hl.sentiment;
+  const color = score !== null && score !== undefined ? sentimentColor(score) : '#aaa';
+  const scoreStr = score !== null && score !== undefined ? score.toFixed(2) : '';
+  const speakerTag = hl.speaker
+    ? `<span class="hl-speaker">${esc(hl.speaker)}</span>`
+    : '';
+  const blockTag = (hl.blockId !== undefined)
+    ? `<span class="hl-block-id">#${hl.blockId}</span>`
+    : '';
+
+  return `
+    <div class="hl-card hl-card-${side}">
+      <div class="hl-sentiment-bar" style="background:${color};"></div>
+      <div class="hl-body">
+        <div class="hl-text">${esc(hl.text)}</div>
+        <div class="hl-meta">
+          ${speakerTag}${blockTag}
+          ${scoreStr ? `<span class="hl-score" style="color:${color};">${scoreStr}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+let compareMode = 'topic'; // 'topic' | 'raw'
+let compareFilter = null;   // null='all' | 'q1only' | 'q2only' | topic_index_number
+
+function renderCompareView(q1Data, q2Data) {
+  try {
+    const container = document.getElementById('blocks-container');
+    const allTopics = buildCompareTopics(q1Data, q2Data);
+    console.log('renderCompareView: allTopics=', allTopics.length, 'compareFilter=', compareFilter, 'compareMode=', compareMode);
+
+    // Filter topics if needed
+    let visibleTopics = allTopics;
+    if (compareFilter === 'q1only') {
+      visibleTopics = allTopics.filter(t => t.match === 'q1only');
+    } else if (compareFilter === 'q2only') {
+      visibleTopics = allTopics.filter(t => t.match === 'q2only');
+    } else if (typeof compareFilter === 'number') {
+      visibleTopics = [allTopics[compareFilter]];
+    }
+
+    // ---- Sidebar: populate topic chips (filtered) ----
+    renderCompareSidebar(allTopics, visibleTopics);
+
+    // ---- Main: mode toggle ----
+    const topicActive = compareMode === 'topic' ? ' active' : '';
+    const rawActive = compareMode === 'raw' ? ' active' : '';
+
+    const toggleHtml = `<div class="compare-topics-nav" id="compare-nav">
+    <div class="compare-mode-toggle">
+      <button class="compare-mode-btn${topicActive}" data-mode="topic">SMD</button>
+      <button class="compare-mode-btn${rawActive}" data-mode="raw">Raw</button>
+    </div>
+  </div>`;
+
+    console.log('renderCompareView: visibleTopics=', visibleTopics.length);
+
+    // Build body
+    const bodyHtml = compareMode === 'topic'
+      ? renderCompareTopicView(visibleTopics)
+      : renderCompareRaw(q1Data, q2Data);
+
+    if (compareMode === 'topic') {
+      document.getElementById('raw-view').style.display = 'none';
+      document.getElementById('blocks-container').style.display = '';
+    }
+    container.innerHTML = (compareMode === 'topic') ? toggleHtml + bodyHtml : toggleHtml;
+
+    // Wire up mode toggle buttons via event delegation (more reliable than inline onclick)
+    container.querySelectorAll('.compare-mode-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mode = this.getAttribute('data-mode');
+        if (mode) switchCompareMode(mode);
+      });
+    });
+
+    // Update headers
+    const totalHL = allTopics.reduce((s, t) => s + t.q1Highlights.length + t.q2Highlights.length, 0);
+    const visibleHL = visibleTopics.reduce((s, t) => s + t.q1Highlights.length + t.q2Highlights.length, 0);
+    const modeLabel = compareMode === 'topic' ? 'Topic Highlights' : 'All Highlights';
+    const filterSuffix = (compareFilter === null || compareFilter === undefined) ? ''
+      : compareFilter === 'q1only' ? ' · Q1 Only' : compareFilter === 'q2only' ? ' · Q2 Only' : ' · 1 topic';
+    document.getElementById('doc-title').textContent = `Agilent Q1 vs Q2 FY26 — ${modeLabel}${filterSuffix}`;
+    document.getElementById('doc-meta').textContent = (compareFilter !== null && compareFilter !== undefined)
+      ? `Showing ${visibleTopics.length} of ${allTopics.length} topics · ${visibleHL} of ${totalHL} highlights`
+      : `${allTopics.length} topics · ${totalHL} highlights`;
+
+    // Scroll to topic if filtering to a specific one
+    if (typeof compareFilter === 'number') {
+      setTimeout(() => {
+        const el = document.getElementById('topic-group-0');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  } catch(e) {
+    console.error('renderCompareView error:', e);
+    document.getElementById('blocks-container').innerHTML = '<div class="empty-state"><p>Error rendering compare view: ' + e.message + '</p></div>';
+  }
+}
+
+function renderCompareSidebar(allTopics, visibleTopics) {
+  const sidebarDiv = document.getElementById('sidebar-compare-topics');
+  sidebarDiv.style.display = '';
+  document.getElementById('tag-filters').innerHTML = '';
+  document.getElementById('active-filters').innerHTML = '';
+
+  // Quick-filter counts always from all topics (not filtered)
+  const q1OnlyCount = allTopics.filter(t => t.match === 'q1only').length;
+  const q2OnlyCount = allTopics.filter(t => t.match === 'q2only').length;
+
+  // Quick-filter chips
+  const allActive = (compareFilter === null || compareFilter === undefined) ? ' active' : '';
+  const q1Active = compareFilter === 'q1only' ? ' active' : '';
+  const q2Active = compareFilter === 'q2only' ? ' active' : '';
+
+  const quickFilters = `
+    <div class="sidebar-quick-filters" id="sidebar-quick-filters">
+      <div class="sidebar-quick-chip${q1Active}" data-filter="q1only">Q1 Only <span class="sq-count">${q1OnlyCount}</span></div>
+      <div class="sidebar-quick-chip${q2Active}" data-filter="q2only">Q2 Only <span class="sq-count">${q2OnlyCount}</span></div>
+      <div class="sidebar-quick-chip${allActive}" data-filter="all">All <span class="sq-count">${allTopics.length}</span></div>
+    </div>`;
+
+  // Topic list uses visibleTopics (filtered)
+  const html = `<div class="sidebar-section-label">📋 Topics</div>
+    ${quickFilters}
+    <div class="sidebar-topic-list">
+    ${visibleTopics.map((t, i) => {
+      // Find original index in allTopics for proper filter target
+      const origIdx = allTopics.findIndex(at => at.topic === t.topic);
+      const dot = t.match === 'exact' ? '<span class="sidebar-dot exact"></span>'
+                : t.match === 'q1only' ? '<span class="sidebar-dot q1only"></span>'
+                : '<span class="sidebar-dot q2only"></span>';
+      const count = t.q1Highlights.length + t.q2Highlights.length;
+      const active = compareFilter === origIdx ? ' active' : '';
+      return `<div class="sidebar-topic-chip${active}" data-topic-idx="${origIdx}">
+        ${dot}<span class="sidebar-topic-label">${esc(t.topic)}</span>
+        <span class="sidebar-topic-count">${count}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  sidebarDiv.innerHTML = html;
+
+  // Wire up quick-filter chips via event delegation
+  const qfContainer = document.getElementById('sidebar-quick-filters');
+  if (qfContainer) {
+    qfContainer.querySelectorAll('.sidebar-quick-chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        const filter = this.getAttribute('data-filter');
+        console.log('Quick-filter chip clicked:', filter);
+        if (filter === 'all') filterToAll();
+        else if (filter === 'q1only' || filter === 'q2only') filterToQuarter(filter);
+      });
+    });
+  }
+
+  // Wire up topic chips via event delegation
+  sidebarDiv.querySelectorAll('.sidebar-topic-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      const idx = parseInt(this.getAttribute('data-topic-idx'));
+      console.log('Topic chip clicked:', idx);
+      if (!isNaN(idx)) filterToTopic(idx);
+    });
+  });
+}
+
+// ---- Filter actions ----
+function filterToAll() {
+  console.log('filterToAll called, compareFilter before:', compareFilter, 'data loaded:', !!(compareQ1Data && compareQ2Data));
+  compareFilter = null;
+  if (compareQ1Data && compareQ2Data) { renderCompareView(compareQ1Data, compareQ2Data); }
+  else { console.warn('filterToAll: data not loaded'); }
+}
+
+function filterToQuarter(q) {
+  console.log('filterToQuarter called, q:', q, 'compareFilter before:', compareFilter, 'data loaded:', !!(compareQ1Data && compareQ2Data));
+  compareFilter = q;
+  if (compareQ1Data && compareQ2Data) { renderCompareView(compareQ1Data, compareQ2Data); }
+  else { console.warn('filterToQuarter: data not loaded'); }
+}
+
+function filterToTopic(idx) {
+  console.log('filterToTopic called, idx:', idx, 'compareFilter before:', compareFilter);
+  if (compareFilter === idx) { compareFilter = null; }  // toggle off
+  else { compareFilter = idx; }
+  if (compareQ1Data && compareQ2Data) { renderCompareView(compareQ1Data, compareQ2Data); }
+  else { console.warn('filterToTopic: data not loaded'); }
+}
+
+function switchCompareMode(mode) {
+  if (compareMode === mode) return;
+  compareMode = mode;
+  if (compareQ1Data && compareQ2Data) {
+    renderCompareView(compareQ1Data, compareQ2Data);
+  }
+}
+
+function renderCompareTopicView(topics) {
+  return topics.map((t, i) => {
+    const label = t.topic;
+    const matchLabel = t.match === 'exact' ? 'Matched' : t.match === 'q2only' ? 'Q2 Only' : 'Q1 Only';
+    const matchClass = t.match;
+
+    const q1Cards = t.q1Highlights.length > 0
+      ? t.q1Highlights.map(h => renderHighlightCard(h, 'q1')).join('')
+      : '<div class="empty-col">—</div>';
+
+    const q2Cards = t.q2Highlights.length > 0
+      ? t.q2Highlights.map(h => renderHighlightCard(h, 'q2')).join('')
+      : '<div class="empty-col">—</div>';
+
+    return `
+    <div class="topic-group" id="topic-group-${i}">
+      <div class="topic-group-header" onclick="toggleTopicGroup(${i})">
+        <h3>
+          ${esc(label)}
+          <span class="topic-match-badge ${matchClass}">${matchLabel}</span>
+        </h3>
+        <span class="topic-meta">${t.q1Highlights.length} / ${t.q2Highlights.length} highlights</span>
+        <span class="topic-chevron">▼</span>
+      </div>
+      <div class="topic-body">
+        <div class="compare-column q1-col">
+          <div class="compare-column-header">Q1 FY26 · ${t.q1Highlights.length} highlights</div>
+          ${q1Cards}
+        </div>
+        <div class="compare-column q2-col">
+          <div class="compare-column-header">Q2 FY26 · ${t.q2Highlights.length} highlights</div>
+          ${q2Cards}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCompareRaw(q1Data, q2Data) {
+  // Show raw SMD text — Q1 then Q2, one after the other, no processing
+  const rawView = document.getElementById('raw-view');
+  const sep = '\n\n' + '='.repeat(80) + '\n\n';
+  rawView.textContent = (compareQ1RawText || '') + sep + (compareQ2RawText || '');
+  rawView.style.display = '';
+}
+
+// Full block render for raw compare — speaker, body, highlights, takeaways
+function renderBlockFull(block) {
+  if (!block) return '';
+
+  // Speaker + clean body
+  const speakerMatch = block.body_text.match(/^\*\*(.+?)\*\*:\s*/);
+  const speaker = speakerMatch ? speakerMatch[1] : '';
+  const cleanBody = block.body_text.replace(/^\*\*(.+?)\*\*:\s*/, '');
+
+  // Collect highlights
+  const allHighlights = [];
+  const enrRaw = block.header.enrichment || block.header.enrichments;
+  if (enrRaw) {
+    const items = Array.isArray(enrRaw) ? enrRaw : [enrRaw];
+    for (const item of items) {
+      if (item && Array.isArray(item.highlights)) {
+        for (const h of item.highlights) {
+          const obj = typeof h === 'string' ? { text: h } : { ...h };
+          if (item.topic) obj.topic = item.topic;
+          allHighlights.push(obj);
+        }
+      }
+    }
+  }
+
+  const highlightsHtml = allHighlights.length ? `
+    <div class="highlights-box" style="padding:4px 10px;">
+      ${allHighlights.map(h => {
+        const score = h.sentiment;
+        const color = score !== null && score !== undefined ? sentimentColor(score) : '#e8c840';
+        return `<div class="highlight-item" style="padding:2px 6px;margin:1px 0;font-size:11px;">
+          <span class="highlight-bar" style="width:3px;height:12px;background:${color};"></span>
+          ${esc(h.text || h.excerpt || '')}
+          ${score !== null && score !== undefined ? `<span style="font-size:9px;color:${color};margin-left:auto;font-weight:600;">${score.toFixed(2)}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Summary
+  const summary = block.header.summary || '';
+  const summaryHtml = summary ? `<div class="summary-box" style="padding:6px 10px;font-size:12px;">${esc(summary)}</div>` : '';
+
+  // Key takeaways
+  const takeaways = block.header.key_takeaways || [];
+  const takeawaysHtml = takeaways.length ? `
+    <div class="takeaways-box" style="padding:6px 10px;font-size:12px;">
+      <strong>Key Takeaways</strong>
+      ${takeaways.map(kt => `<div class="takeaway">→ ${esc(typeof kt === 'string' ? kt : (kt.text || ''))}</div>`).join('')}
+    </div>` : '';
+
+  // Enrichment summary (document-level)
+  const enr = block.header.enrichment || block.header.enrichments;
+  const enrItems = Array.isArray(enr) ? enr : (enr ? [enr] : []);
+  const enrSummary = enrItems.find(e => e && e.summary);
+  const enrSummaryHtml = enrSummary ? `<div class="summary-box" style="padding:6px 10px;font-size:12px;">${esc(enrSummary.summary)}</div>` : '';
+
+  return `
+    <div class="smd-block raw-block">
+      <div class="smd-block-header" style="padding:8px 12px;display:flex;align-items:center;gap:8px;">
+        <span class="block-type-tag">${esc((block.type || 'block').replace(/_/g, ' '))}</span>
+        <span class="block-id">#${esc(block.block_id)}</span>
+        ${speaker ? `<span class="speaker">${esc(speaker)}</span>` : ''}
+      </div>
+      ${enrSummaryHtml}
+      ${summaryHtml}
+      ${takeawaysHtml}
+      ${highlightsHtml}
+      <div class="body-text" style="padding:10px 14px;font-size:13px;line-height:1.65;">${simpleMD(cleanBody)}</div>
+    </div>`;
+}
+
+function toggleTopicGroup(idx) {
+  const el = document.getElementById('topic-group-' + idx);
+  if (el) el.classList.toggle('collapsed');
+}
+
+let compareQ1Data = null;
+let compareQ2Data = null;
+let compareQ1RawText = '';
+let compareQ2RawText = '';
+
+function loadCompare() {
+  // Force SMD view
+  document.getElementById('blocks-container').style.display = '';
+  document.getElementById('raw-view').style.display = 'none';
+  document.getElementById('btn-view-smd').classList.add('active');
+  document.getElementById('btn-view-raw').classList.remove('active');
+  currentView = 'smd';
+
+  // Reset mode and filter on fresh load
+  compareMode = 'topic';
+  compareFilter = null;
+
+  // Deactivate all template buttons, activate compare
+  document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-compare').classList.add('active');
+  currentTemplate = null;
+
+  // Hide view toggle
+  document.getElementById('view-toggle-group').style.display = 'none';
+
+  // Switch sidebar to compare topics
+  document.getElementById('tag-filters').innerHTML = '';
+  document.getElementById('active-filters').innerHTML = '';
+  document.getElementById('sidebar-compare-topics').style.display = '';
+  document.getElementById('sidebar-compare-topics').innerHTML = '<div style="padding:12px;color:#999;font-size:12px;">Loading topics...</div>';
+
+  // Show loading state
+  const container = document.getElementById('blocks-container');
+  container.innerHTML = '<div class="empty-state"><div class="big-icon">⏳</div><p>Loading Q1 &amp; Q2 transcripts...</p></div>';
+  document.getElementById('doc-title').textContent = 'Comparing...';
+  document.getElementById('doc-meta').textContent = '';
+
+  // If already loaded, render immediately
+  if (compareQ1Data && compareQ2Data) {
+    renderCompareView(compareQ1Data, compareQ2Data);
+    return;
+  }
+
+  // Fetch both files in parallel
+  Promise.all([
+    fetch('examples/Agilent_Transcript_1Q_2026.smd').then(r => { if (!r.ok) throw new Error('Q1: ' + r.status); return r.text(); }),
+    fetch('examples/Agilent_Transcript_2Q_2026.smd').then(r => { if (!r.ok) throw new Error('Q2: ' + r.status); return r.text(); })
+  ])
+  .then(([q1Text, q2Text]) => {
+    compareQ1RawText = q1Text;
+    compareQ2RawText = q2Text;
+    compareQ1Data = parseSMD(q1Text);
+    compareQ2Data = parseSMD(q2Text);
+    if (!compareQ1Data.blocks.length || !compareQ2Data.blocks.length) {
+      alert('Failed to parse one or both transcript files.');
+      return;
+    }
+    renderCompareView(compareQ1Data, compareQ2Data);
+  })
+  .catch(err => {
+    alert('Failed to load comparison: ' + err.message + '\n\nMake sure the HTTP server is running.\n  python3 -m http.server 8080');
+  });
+}
+
+// ---- View toggle (Raw / SMD) ----
+function setView(view) {
+  currentView = view;
+  const blocksContainer = document.getElementById('blocks-container');
+  const rawView = document.getElementById('raw-view');
+  const btnSmd = document.getElementById('btn-view-smd');
+  const btnRaw = document.getElementById('btn-view-raw');
+
+  if (view === 'raw') {
+    blocksContainer.style.display = 'none';
+    rawView.style.display = '';
+    rawView.textContent = currentRawText;
+    btnSmd.classList.remove('active');
+    btnRaw.classList.add('active');
+  } else {
+    blocksContainer.style.display = '';
+    rawView.style.display = 'none';
+    btnSmd.classList.add('active');
+    btnRaw.classList.remove('active');
+  }
+}
+
+document.getElementById('btn-view-smd').addEventListener('click', () => setView('smd'));
+document.getElementById('btn-view-raw').addEventListener('click', () => setView('raw'));
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  loadPath('examples/Agilent_Transcript_1Q_2026.smd');
+});
+</script>
+</body>
+</html>
