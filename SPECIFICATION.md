@@ -14,20 +14,22 @@
 - [0. Conformance Levels](#0-conformance-levels)
 - [1. Design Principles](#1-design-principles)
 - [2. Primitives](#2-primitives)
-- [3. Separator Rules](#3-separator-rules)
-- [4. Formal Grammar (EBNF)](#4-formal-grammar-ebnf)
-- [5. Body Content Parsing](#5-body-content-parsing)
-- [6. Parser Algorithm](#6-parser-algorithm)
-- [7. Identifiers](#7-identifiers)
-- [8. Nesting Conventions](#8-nesting-conventions-not-format-rules)
-- [9. Use Cases](#9-use-cases)
-- [10. Viewer Semantics](#10-viewer-semantics-semantic-overlays)
-- [11. Clustering Pipelines](#11-clustering-pipelines)
-- [12. Comparison with Alternatives](#12-comparison-with-alternatives)
-- [13. Error Handling](#13-error-handling)
-- [14. Schema Versioning](#14-schema-versioning)
-- [15. Future Considerations](#15-future-considerations)
-- [16. License](#16-license)
+- [3. SMD as a Typed Document Graph](#3-smd-as-a-typed-document-graph)
+- [4. Separator Rules](#4-separator-rules)
+- [5. Formal Grammar (EBNF)](#5-formal-grammar-ebnf)
+- [6. Body Content Parsing](#6-body-content-parsing)
+- [7. Parser Algorithm](#7-parser-algorithm)
+- [8. Identifiers](#8-identifiers)
+- [9. Nesting Conventions](#9-nesting-conventions-not-format-rules)
+- [10. Use Cases](#10-use-cases)
+- [11. Viewer Semantics](#11-viewer-semantics-non-normative)
+- [12. Query and Retrieval Model](#12-query-and-retrieval-model)
+- [13. Clustering Pipelines](#13-clustering-pipelines)
+- [14. Comparison with Alternatives](#14-comparison-with-alternatives)
+- [15. Error Handling](#15-error-handling)
+- [16. Schema Versioning](#16-schema-versioning)
+- [17. Future Considerations](#17-future-considerations)
+- [18. License](#18-license)
 
 ---
 
@@ -47,9 +49,9 @@ This specification uses the key words **MUST**, **SHOULD**, and **MAY** as defin
 | `@document`/`@block` at line start | MUST | Parser |
 | `document_id` on @document | SHOULD | Document |
 | `schema_version` on @document | SHOULD | Document |
-| `type` on @block | SHOULD | Block |
-| Sentiment interpreted visually | SHOULD | Viewer |
-| `parent_id` used for hierarchy | MAY | Application |
+| Block body present (may be empty) | MUST | All blocks |
+| Annotations carry provenance | SHOULD | Annotation producers |
+| Viewers interpret annotations | MAY | Viewer |
 | Cross-document aggregation | MAY | Viewer / Indexer |
 | Clustering pipelines | MAY | External tools |
 
@@ -61,7 +63,7 @@ SMD treats documents as structured data artifacts, not passive text containers.
 
 1. **Minimal primitives.** Two constructs (`@document`, `@block`), one separator (`---`). Everything else is convention.
 
-2. **No enforced hierarchy model.** Nesting, trees, graphs, timelines — all expressed through conventional use of `block_id`, `tags`, and `type`. Hierarchy primitives exist (`parent_id`) but the format does not mandate a specific structure. The format defines the alphabet; users define the grammar.
+2. **No enforced hierarchy model.** Nesting, trees, graphs, timelines — all expressed through conventional use of `block_id`, annotations (`type: "tags"`), and typed edges (`parent-of`). Hierarchy primitives exist (the `parent-of` edge type) but the format does not mandate a specific structure. The format defines the alphabet; users define the grammar.
 
 3. **Conventions over protocols.** The format does not enforce a nesting schema. An ecosystem of conventions can emerge (e.g., `block_level=N` tag, path-based IDs, parent pointers).
 
@@ -72,10 +74,10 @@ SMD treats documents as structured data artifacts, not passive text containers.
 6. **Three-layer architecture.** SMD is defined across three explicit layers:
 
    - **Syntax layer** — `@document`, `@block`, `---` separator, EBNF grammar. What a valid `.smd` file looks like.
-   - **Data model layer** — JSON schemas for documents and blocks (`block_id`, `type`, `tags`, `sentiment`, `enrichment`, `meta`). What structured information each entity carries.
-   - **Interaction layer** — Agent enrichment, viewer semantics, clustering pipelines, cross-document aggregation. How systems read, write, and evolve SMD documents.
+   - **Data model layer** — JSON schemas for documents and blocks (`block_id`, `document_id`, `body`, `meta`). What structured information each entity carries.
+   - **Interaction layer** — Annotations, viewer projections, clustering pipelines, cross-document aggregation. How systems read, write, and evolve SMD documents.
 
-   These layers are separable: a parser can validate syntax without understanding data model semantics. An agent can enrich blocks without changing rendering. A viewer can render without running clustering pipelines.
+   These layers are separable: a parser can validate syntax without understanding data model semantics. An agent can annotate blocks without changing rendering. A viewer can render without running clustering pipelines.
 
 ---
 
@@ -114,32 +116,22 @@ The body is optional — a document may exist solely as a container for blocks.
 
 ### 2.2 `@block`
 
-A content unit — the fundamental addressable entity in SMD.
+A content unit — the fundamental addressable entity in SMD. A block is **minimal by design**:
 
 ```
+Block = {
+  block_id:    string,        // REQUIRED — unique within document
+  document_id?: string,        // OPTIONAL — reference to parent document
+  body:         string,        // REQUIRED — Markdown content (may be empty string)
+  meta?:        object         // OPTIONAL — application-specific metadata
+}
+```
+
+```smd
 @block
 {
     "block_id": "<string>",
     "document_id": "<string>",
-    "type": "<string>",
-    "parent_id": "<string>",
-    "created": "<ISO 8601 timestamp>",
-    "position": <number>,
-    "tags": ["<string>", ...],
-    "sentiment": [
-        {
-            "excerpt": "<string>",
-            "score": <number>,
-            "label": "<string>",
-            "confidence": <number>
-        }
-    ],
-    "enrichment": {
-        "highlights": ["<string>", ...],
-        "entities": ["<string>", ...],
-        "summary": "<string>",
-        "key_takeaways": ["<string>", ...]
-    },
     "meta": { <any> }
 }
 ---
@@ -152,28 +144,152 @@ A content unit — the fundamental addressable entity in SMD.
 |---|---|---|
 | `block_id` | **REQUIRED** | Unique within the containing document. |
 | `document_id` | OPTIONAL | Reference to parent document. |
-| `type` | RECOMMENDED | Semantic role of this block. Examples: `qa`, `entry`, `note`, `section`, `paragraph`, `summary`, `action_item`. |
-| `parent_id` | OPTIONAL | Reference to parent block for tree/hierarchy conventions. |
-| `created` | OPTIONAL | ISO 8601 timestamp. |
-| `position` | OPTIONAL | Ordinal position within parent or document. |
-| `tags` | OPTIONAL | Free-form string tags. No taxonomy required. Used for filtering, clustering, and overlays. |
-| `sentiment` | OPTIONAL | Two valid forms: **Simple form** — a single float `0.0–1.0` (0=negative, 0.5=neutral, 1.0=positive). **Structured form** — a list of sentiment records, each tied to a specific excerpt. Each record has: `excerpt` (text span), `score` (0.0–1.0), `label` (optional human-readable label), `confidence` (optional model confidence 0.0–1.0). Both forms are valid; parsers MUST accept either. |
-| `enrichment` | OPTIONAL | Agent-generated or human-written enrichment data. Common fields: `highlights`, `entities`, `summary`, `key_takeaways`. Enrichment is mutable and MAY be updated independently of the original body content. |
 | `meta` | OPTIONAL | Application-specific metadata. |
 
 The body is **REQUIRED** for `@block` (may be empty string).
 
-All enrichment, sentiment, highlights, and summary data MUST be placed in the block's JSON header. Do NOT use standalone triple-backtick fenced blocks (e.g. ` ```summary`, ` ```sentiment`) in the body to carry enrichment data — those are reserved for inline thinking/annotations that are part of the narrative content (e.g. ` ```thought`).
+**Everything else — type, tags, sentiment, entities, structure, summaries, highlights — is represented via [annotations](#23-annotation-model) or external edges (see [§3](#3-smd-as-a-typed-document-graph)).** This keeps the core format minimal and the extension surface unbounded.
+
+### 2.3 Annotation Model
+
+Annotations are optional, schema-free overlays on blocks. They carry everything that is not part of the block's core identity (id + body).
+
+```json
+{
+  "annotation": {
+    "type": "string",
+    "payload": {},
+    "provenance": {
+      "source": "string",
+      "model": "string",
+      "timestamp": "ISO-8601"
+    }
+  }
+}
+```
+
+**Fields:**
+
+| Field | Requirement | Description |
+|---|---|---|
+| `type` | **REQUIRED** | Annotation kind. Examples: `sentiment`, `tags`, `summary`, `entities`, `highlights`, `edge`. |
+| `payload` | **REQUIRED** | Arbitrary JSON — the annotation's data. Schema is defined by `type`. |
+| `provenance.source` | RECOMMENDED | Origin: `human`, agent name, pipeline identifier, or tool. |
+| `provenance.model` | OPTIONAL | Model or algorithm that produced this annotation. |
+| `provenance.timestamp` | RECOMMENDED | ISO-8601 timestamp of when the annotation was created. |
+
+**Design properties:**
+
+- **Schema-free.** No fixed schema for `payload`. Each `type` defines its own contract.
+- **Provenance-tracked.** Every annotation records its origin, enabling audit trails and conflict resolution.
+- **Mutable independently.** Annotations can be added, updated, or removed without touching the block body.
+- **Multi-source.** Multiple annotations of the same `type` from different sources can coexist.
+- **External or inline.** Annotations MAY be stored in a block's `meta` field, in a sidecar file, or in an external annotation store.
+
+**Example — sentiment and tags as annotations:**
+
+```smd
+@block
+{
+    "block_id": "qa-0001",
+    "meta": {
+        "annotations": [
+            {
+                "type": "sentiment",
+                "payload": {
+                    "excerpt": "Guidance beat consensus by ~2%.",
+                    "score": 0.74,
+                    "label": "positive",
+                    "confidence": 0.88
+                },
+                "provenance": {
+                    "source": "sentiment-agent-v2",
+                    "model": "finbert-sentiment",
+                    "timestamp": "2026-06-07T18:30:00Z"
+                }
+            },
+            {
+                "type": "tags",
+                "payload": { "values": ["guidance", "revenue"] },
+                "provenance": {
+                    "source": "human",
+                    "timestamp": "2026-06-07T18:35:00Z"
+                }
+            }
+        ]
+    }
+}
+---
+**Michael Ng:** Can you talk about Q4 guidance?
+```
 
 ---
 
-## 3. Separator Rules
+## 3. SMD as a Typed Document Graph
 
-### 2.1 Entity start
+An SMD document is formally defined as a typed, attributed graph:
+
+```
+SMD Document = G = (V, E, A)
+
+  V = Blocks                    — vertices are @block entities
+  E = Typed edges over V × V    — relationships between blocks
+  A = Annotations over V ∪ E    — schema-free overlays on vertices and edges
+```
+
+### 3.1 Edge Types
+
+Edges are typed relationships between blocks. The following edge types are recognized:
+
+| Edge Type | Semantics | Example |
+|---|---|---|
+| `parent-of` | Hierarchical containment. A contains B. | Section → Subsection |
+| `references` | Cross-reference. A cites or mentions B. | Analysis block → Source block |
+| `derived-from` | Provenance chain. A was generated or extracted from B. | Summary block → Transcript block |
+| `temporal-order` | Temporal sequencing. A precedes B in time. | Day entry N → Day entry N+1 |
+
+Additional edge types MAY be defined by applications.
+
+### 3.2 Edge Representation
+
+Edges are annotations with `type: "edge"`:
+
+```json
+{
+  "type": "edge",
+  "payload": {
+    "edge_type": "parent-of",
+    "source": "sec-methodology",
+    "target": "sec-wacc"
+  },
+  "provenance": {
+    "source": "structure-agent",
+    "timestamp": "2026-06-07T18:30:00Z"
+  }
+}
+```
+
+Edges MAY be stored:
+- In the source block's `meta.annotations`
+- In a dedicated `@document`-level annotation block
+- In an external edge index
+
+### 3.3 Why a Graph?
+
+- **Trees are insufficient.** Documents contain cross-references, temporal sequences, and derivation chains that trees cannot express.
+- **Edges are typed.** Unlike generic hyperlinks, typed edges carry semantics that algorithms can reason about.
+- **Annotations attach anywhere.** Sentiment, tags, summaries — all overlay the graph without polluting the vertex schema.
+- **Structure is emergent.** The graph is discovered or declared, not mandated by the format.
+
+---
+
+## 4. Separator Rules
+
+### 4.1 Entity start
 
 An SMD file is parsed by scanning for lines that match `^@document` or `^@block` at the start of a line. The parser assumes that `@document` and `@block` always begin at the start of a line with no preceding whitespace.
 
-### 2.2 Header–body separator
+### 4.2 Header–body separator
 
 The **first** occurrence of `^---$` (three dashes on their own line) after the `@document`/`@block` line ends the JSON header and begins the body. Only a `---` line that appears in the header-body boundary context is treated as a separator — `---` lines within body content (e.g., Markdown horizontal rules, code blocks) are part of the body and have no structural significance.
 
@@ -186,7 +302,7 @@ The **first** occurrence of `^---$` (three dashes on their own line) after the `
 Content body     ← body (Markdown)
 ```
 
-### 2.3 Body termination
+### 4.3 Body termination
 
 A block/document body is terminated by:
 - The next `@document` or `@block` line
@@ -194,7 +310,7 @@ A block/document body is terminated by:
 
 ---
 
-## 4. Formal Grammar (EBNF)
+## 5. Formal Grammar (EBNF)
 
 ```ebnf
 smd_file        = { entity } , EOF;
@@ -212,21 +328,21 @@ newline         = "\n" | "\r\n";
 any_character   = ? any Unicode character except EOF ?;
 ```
 
-This grammar defines syntactic structure only. It does not define semantic validity of JSON fields or enrichment schemas.
+This grammar defines syntactic structure only. It does not define semantic validity of JSON fields or annotation schemas.
 
 The JSON header MUST be a valid JSON object as defined by [RFC 8259](https://tools.ietf.org/html/rfc8259).
 
 ---
 
-## 5. Body Content Parsing
+## 6. Body Content Parsing
 
 The body parser recognizes **triple-backtick fenced sections** with an optional content type label. The body is split into an ordered list of typed segments. Body parsing MUST operate on raw text after the separator, not on a rendered Markdown AST.
 
-### 5.1 Markdown segments
+### 6.1 Markdown segments
 
 Raw Markdown text between fenced blocks is parsed as `type: "markdown"`.
 
-### 5.2 Fenced segments
+### 6.2 Fenced segments
 
 Content between ` ```type ... ``` ` is extracted as a typed payload:
 
@@ -259,7 +375,7 @@ The parser produces:
 
 ---
 
-## 6. Parser Algorithm
+## 7. Parser Algorithm
 
 ```
 function parse_smd(text: string): Entity[] {
@@ -299,61 +415,111 @@ function parse_smd(text: string): Entity[] {
 
 ---
 
-## 7. Identifiers
+## 8. Identifiers
 
-### 7.1 `block_id`
+### 8.1 `block_id`
 
 - **REQUIRED** on every `@block`.
 - MUST be unique within the containing document.
 - Global uniqueness is achieved via the `(document_id, block_id)` tuple. When blocks are moved across documents, the `document_id` MUST be updated to reflect the new owning document.
 - RECOMMENDED conventions: UUIDv7 (time-sortable), slugs (`qa-0042`, `day-2026-01-15`), or path-like identifiers (`section/methodology/wacc`).
 
-### 7.2 `document_id`
+### 8.2 `document_id`
 
 - **REQUIRED** on every `@document`.
 - RECOMMENDED: UUIDv7 or a unique slug.
 
-### 7.3 Referencing
+### 8.3 Referencing
 
-Blocks reference each other via `parent_id` to form tree structures. The format does not enforce tree validity; it is a convention.
+Blocks reference each other via typed edges (see [§3](#3-smd-as-a-typed-document-graph)). The `parent-of` edge type establishes hierarchy:
 
 ```
-@block { "block_id": "ch-1", "type": "chapter" }
+@block { "block_id": "ch-1" }
 ---
 ## Overview
 
-@block { "block_id": "sec-1", "parent_id": "ch-1" }
+@block
+{
+    "block_id": "sec-1",
+    "meta": {
+        "annotations": [
+            {
+                "type": "edge",
+                "payload": { "edge_type": "parent-of", "source": "ch-1", "target": "sec-1" },
+                "provenance": { "source": "human", "timestamp": "2026-01-01T00:00:00Z" }
+            }
+        ]
+    }
+}
 ---
 ### Details
 ```
 
 ---
 
-## 8. Nesting Conventions (Not Format Rules)
+## 9. Nesting Conventions (Not Format Rules)
 
 SMD does not have built-in nesting. The following conventions are recognized patterns:
 
-### 8.1 Explicit parent pointer
+### 9.1 Explicit parent edge
 
 ```smd
-@block { "block_id": "sec-1-1", "parent_id": "ch-1" }
+@block
+{
+    "block_id": "sec-1-1",
+    "meta": {
+        "annotations": [
+            {
+                "type": "edge",
+                "payload": { "edge_type": "parent-of", "source": "ch-1", "target": "sec-1-1" },
+                "provenance": { "source": "human" }
+            }
+        ]
+    }
+}
+---
+### Section 1.1
 ```
 
-### 8.2 Tag-based level
+### 9.2 Tag-based level
 
 ```smd
-@block { "block_id": "h1", "tags": ["block_level=1"] }
+@block
+{
+    "block_id": "h1",
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["block_level=1"] },
+                "provenance": { "source": "human" }
+            }
+        ]
+    }
+}
 ---
 # Chapter 1
 
-@block { "block_id": "h2", "tags": ["block_level=2"] }
+@block
+{
+    "block_id": "h2",
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["block_level=2"] },
+                "provenance": { "source": "human" }
+            }
+        ]
+    }
+}
 ---
 ## Section 1.1
 ```
 
-A viewer can reconstruct a tree by grouping on `block_level`.
+A viewer can reconstruct a tree by grouping on `block_level` tag values.
 
-### 8.3 Path-based `block_id`
+### 9.3 Path-based `block_id`
 
 ```smd
 @block { "block_id": "2026/06/07/note-1" }
@@ -362,28 +528,55 @@ A viewer can reconstruct a tree by grouping on `block_level`.
 
 The `/` separator is a convention — viewers MAY split on `/` to build a tree.
 
-### 8.4 Namespaced tags
+### 9.4 Namespaced tags
 
 ```smd
-@block { "tags": ["section:intro"] }
-@block { "tags": ["section:body", "sub:methodology"] }
+@block
+{
+    "block_id": "b1",
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["section:intro"] },
+                "provenance": { "source": "human" }
+            }
+        ]
+    }
+}
+---
+
+@block
+{
+    "block_id": "b2",
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["section:body", "sub:methodology"] },
+                "provenance": { "source": "human" }
+            }
+        ]
+    }
+}
+---
 ```
 
 Clustering pipelines can discover hierarchy from tag name conventions.
 
 ---
 
-## 9. Use Cases
+## 10. Use Cases
 
-### 9.1 Earnings Transcript (Q&A blocks)
+### 10.1 Earnings Transcript (Q&A blocks)
 
 ```smd
 @document
 {
     "document_id": "aapl-q3-2026",
-    "type": "transcript",
-    "source": "AAPL Q3 2026 Earnings Call",
+    "schema_version": "0.0",
     "created": "2026-06-07T18:30:00Z",
+    "source": "AAPL Q3 2026 Earnings Call",
     "meta": {
         "ticker": "AAPL",
         "fiscal_quarter": "Q3",
@@ -394,22 +587,39 @@ Clustering pipelines can discover hierarchy from tag name conventions.
 @block
 {
     "block_id": "qa-0001",
-    "type": "qa",
-    "position": 1,
-    "tags": ["guidance", "revenue"],
-    "speaker": "Analyst - Goldman Sachs",
-    "sentiment": [
-        {
-            "excerpt": "Guidance beat consensus by ~2%. Services growth continues.",
-            "score": 0.74,
-            "label": "positive",
-            "confidence": 0.88
-        }
-    ],
-    "enrichment": {
-        "highlights": ["Revenue guidance above consensus"],
-        "entities": ["AAPL", "Services"],
-        "summary": "Guidance beat consensus by ~2%. Services growth continues."
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["guidance", "revenue"] },
+                "provenance": { "source": "human", "timestamp": "2026-06-07T18:30:00Z" }
+            },
+            {
+                "type": "sentiment",
+                "payload": {
+                    "excerpt": "Guidance beat consensus by ~2%. Services growth continues.",
+                    "score": 0.74,
+                    "label": "positive",
+                    "confidence": 0.88
+                },
+                "provenance": { "source": "sentiment-agent-v2", "model": "finbert-sentiment", "timestamp": "2026-06-07T18:31:00Z" }
+            },
+            {
+                "type": "summary",
+                "payload": { "text": "Guidance beat consensus by ~2%. Services growth continues." },
+                "provenance": { "source": "summarizer", "model": "gpt-4", "timestamp": "2026-06-07T18:32:00Z" }
+            },
+            {
+                "type": "entities",
+                "payload": { "values": ["AAPL", "Services"] },
+                "provenance": { "source": "ner-agent", "timestamp": "2026-06-07T18:31:00Z" }
+            },
+            {
+                "type": "speaker",
+                "payload": { "name": "Michael Ng", "role": "Analyst", "affiliation": "Goldman Sachs" },
+                "provenance": { "source": "human", "timestamp": "2026-06-07T18:30:00Z" }
+            }
+        ]
     }
 }
 ---
@@ -420,18 +630,30 @@ Clustering pipelines can discover hierarchy from tag name conventions.
 @block
 {
     "block_id": "qa-0002",
-    "type": "qa",
-    "position": 2,
-    "tags": ["AI", "capex"],
-    "speaker": "Analyst - Morgan Stanley",
-    "sentiment": [
-        {
-            "excerpt": "We're investing significantly...",
-            "score": 0.91,
-            "label": "very positive",
-            "confidence": 0.95
-        }
-    ]
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["AI", "capex"] },
+                "provenance": { "source": "human", "timestamp": "2026-06-07T18:33:00Z" }
+            },
+            {
+                "type": "sentiment",
+                "payload": {
+                    "excerpt": "We're investing significantly...",
+                    "score": 0.91,
+                    "label": "very positive",
+                    "confidence": 0.95
+                },
+                "provenance": { "source": "sentiment-agent-v2", "model": "finbert-sentiment", "timestamp": "2026-06-07T18:33:00Z" }
+            },
+            {
+                "type": "speaker",
+                "payload": { "name": "Erik Woodring", "role": "Analyst", "affiliation": "Morgan Stanley" },
+                "provenance": { "source": "human", "timestamp": "2026-06-07T18:33:00Z" }
+            }
+        ]
+    }
 }
 ---
 **Erik Woodring:** On AI capex?
@@ -439,7 +661,7 @@ Clustering pipelines can discover hierarchy from tag name conventions.
 **Tim Cook:** We're investing significantly...
 ```
 
-### 9.2 Financial Notebook (day blocks)
+### 10.2 Financial Notebook (day blocks)
 
 One file, many dated entries:
 
@@ -447,17 +669,32 @@ One file, many dated entries:
 @document
 {
     "document_id": "research-aapl-2026",
-    "type": "notebook",
-    "title": "AAPL Research Notes"
+    "schema_version": "0.0",
+    "meta": { "title": "AAPL Research Notes" }
 }
 ---
 @block
 {
     "block_id": "day-2026-01-15",
-    "type": "entry",
-    "created": "2026-01-15",
-    "tags": ["valuation", "dcf"],
-    "meta": { "mood": "bullish" }
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["valuation", "dcf"] },
+                "provenance": { "source": "human", "timestamp": "2026-01-15T09:00:00Z" }
+            },
+            {
+                "type": "mood",
+                "payload": { "value": "bullish" },
+                "provenance": { "source": "human", "timestamp": "2026-01-15T09:00:00Z" }
+            },
+            {
+                "type": "edge",
+                "payload": { "edge_type": "temporal-order", "source": "day-2026-01-15", "target": "day-2026-03-22" },
+                "provenance": { "source": "structure-agent", "timestamp": "2026-06-09T00:00:00Z" }
+            }
+        ]
+    }
 }
 ---
 Updated DCF model today. WACC lowered to 9.2%.
@@ -467,10 +704,20 @@ Updated DCF model today. WACC lowered to 9.2%.
 @block
 {
     "block_id": "day-2026-03-22",
-    "type": "entry",
-    "created": "2026-03-22",
-    "tags": ["ai", "capex", "valuation"],
-    "meta": { "mood": "neutral" }
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["ai", "capex", "valuation"] },
+                "provenance": { "source": "human", "timestamp": "2026-03-22T14:00:00Z" }
+            },
+            {
+                "type": "mood",
+                "payload": { "value": "neutral" },
+                "provenance": { "source": "human", "timestamp": "2026-03-22T14:00:00Z" }
+            }
+        ]
+    }
 }
 ---
 AI capex $15B announced.
@@ -480,18 +727,33 @@ This impacts FCF. Need to adjust model.
 ```
 ```
 
-### 9.3 Collaborative Research (multi-author)
+### 10.3 Collaborative Research (multi-author)
 
 ```smd
-@document { "document_id": "semi-research", "type": "notebook" }
+@document { "document_id": "semi-research", "schema_version": "0.0" }
 ---
 @block
 {
     "block_id": "note-alice-001",
-    "type": "note",
-    "author": "Alice",
-    "created": "2026-06-05",
-    "tags": ["nvda", "datacenter"]
+    "meta": {
+        "annotations": [
+            {
+                "type": "author",
+                "payload": { "name": "Alice" },
+                "provenance": { "source": "human", "timestamp": "2026-06-05T10:00:00Z" }
+            },
+            {
+                "type": "tags",
+                "payload": { "values": ["nvda", "datacenter"] },
+                "provenance": { "source": "human", "timestamp": "2026-06-05T10:00:00Z" }
+            },
+            {
+                "type": "edge",
+                "payload": { "edge_type": "derived-from", "source": "note-bob-001", "target": "note-alice-001" },
+                "provenance": { "source": "human", "timestamp": "2026-06-06T16:00:00Z" }
+            }
+        ]
+    }
 }
 ---
 NVDA datacenter revenue grew 140% YoY.
@@ -503,28 +765,56 @@ Review AMD MI350 benchmarks. Assigned to: Bob
 @block
 {
     "block_id": "note-bob-001",
-    "type": "note",
-    "author": "Bob",
-    "created": "2026-06-06",
-    "tags": ["amd", "mi350"],
-    "meta": { "status": "in_progress" }
+    "meta": {
+        "annotations": [
+            {
+                "type": "author",
+                "payload": { "name": "Bob" },
+                "provenance": { "source": "human", "timestamp": "2026-06-06T16:00:00Z" }
+            },
+            {
+                "type": "tags",
+                "payload": { "values": ["amd", "mi350"] },
+                "provenance": { "source": "human", "timestamp": "2026-06-06T16:00:00Z" }
+            },
+            {
+                "type": "status",
+                "payload": { "value": "in_progress" },
+                "provenance": { "source": "human", "timestamp": "2026-06-06T16:00:00Z" }
+            }
+        ]
+    }
 }
 ---
 MI350 has 2.4 TB/s memory bandwidth vs NVDA 2.0 TB/s.
 ```
 
-### 9.4 RAG Corpus (semantic chunks)
+### 10.4 RAG Corpus (semantic chunks)
 
 ```smd
-@document { "document_id": "fed-minutes-2026-05", "type": "corpus" }
+@document { "document_id": "fed-minutes-2026-05", "schema_version": "0.0" }
 ---
 @block
 {
     "block_id": "sec-inflation",
-    "tags": ["inflation", "cpi", "policy"],
-    "enrichment": {
-        "summary": "Fed expresses caution on inflation persistence",
-        "entities": ["CPI", "PCE", "fed funds rate"]
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["inflation", "cpi", "policy"] },
+                "provenance": { "source": "indexer", "timestamp": "2026-05-15T12:00:00Z" }
+            },
+            {
+                "type": "summary",
+                "payload": { "text": "Fed expresses caution on inflation persistence" },
+                "provenance": { "source": "summarizer", "model": "gpt-4", "timestamp": "2026-05-15T12:01:00Z" }
+            },
+            {
+                "type": "entities",
+                "payload": { "values": ["CPI", "PCE", "fed funds rate"] },
+                "provenance": { "source": "ner-agent", "timestamp": "2026-05-15T12:01:00Z" }
+            }
+        ]
     }
 }
 ---
@@ -533,8 +823,20 @@ Participants noted that inflation remains elevated...
 @block
 {
     "block_id": "sec-labor",
-    "tags": ["labor", "employment"],
-    "enrichment": { "summary": "Labor market remains tight" }
+    "meta": {
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["labor", "employment"] },
+                "provenance": { "source": "indexer", "timestamp": "2026-05-15T12:00:00Z" }
+            },
+            {
+                "type": "summary",
+                "payload": { "text": "Labor market remains tight" },
+                "provenance": { "source": "summarizer", "model": "gpt-4", "timestamp": "2026-05-15T12:01:00Z" }
+            }
+        ]
+    }
 }
 ---
 The labor market remains tight...
@@ -542,105 +844,131 @@ The labor market remains tight...
 
 ---
 
-## 10. Viewer Semantics (Semantic Overlays)
+## 11. Viewer Semantics (Non-Normative)
 
-SMD is designed for **triple consumption**: humans, agents, and viewers. The JSON header provides rendering hints that enable visual features impossible in plain Markdown or JSON alone.
-
-### 10.1 Tag-Based Filtering
-
-A viewer MAY extract all `tags` arrays from block headers and present them as a filter interface.
+Rendering is a **projection function** and is not part of the SMD validity model:
 
 ```
-┌─────────────────────────────────────────────┐
-│  Filter: [All] [#valuation] [#ai] [#dcf]   │
-├─────────────────────────────────────────────┤
-│  Only blocks matching selected tags shown.  │
-└─────────────────────────────────────────────┘
+P(view) : (V, E, A) → UI
 ```
 
-Blocks without matching tags are hidden. No parsing of the Markdown body is needed to build this filter.
+Where `(V, E, A)` is the SMD document graph (see [§3](#3-smd-as-a-typed-document-graph)) and `UI` is an arbitrary user interface representation.
 
-### 10.2 Semantic Overlay Mapping
+### 11.1 Non-Normative Status
 
-| Header Field | Visual Treatment |
-|---|---|
-| `sentiment` (0.0–1.0) | Color gradient: red (0) → yellow (0.5) → green (1.0). Applied as gutter stripe, background tint, or icon. |
-| `tags` | Badge/chip per tag. Clickable to filter. |
-| `enrichment.highlights` | Inline annotations, callout boxes, or sidebar list. |
-| `enrichment.entities` | Hyperlinked symbols (e.g., `$AAPL`). Hover for context. |
-| `meta.status` | Status icon: ✅ done, ⏳ in_progress, 🔴 blocked, 📝 draft. |
-| `type` | Section heading icon or custom card style. |
-| `author` | Color-coded by author. |
-| `speaker` | Label prefix in transcript view. |
+- SMD **MUST NOT** define colors, UI layouts, or rendering rules.
+- SMD **MUST NOT** require specific visual treatments of annotations.
+- Renderers **MAY** interpret annotations however they want — as overlays, sidebars, filters, or ignore them entirely.
+- The format defines *what* data is available; renderers define *how* to display it.
 
-### 10.3 Concrete Viewer Example
+### 11.2 Common Rendering Patterns (Informative)
 
-```
-┌──────────────────────────────────────────────────────┐
-│  📈 [0.91]  #guidance #revenue  ✦ Revenue beat      │
-│  ┌──────────────────────────────────────────────────┐│
-│  │ **Analyst:** Great quarter. Can you talk about  ││
-│  │ guidance?                                       ││
-│  │                                                  ││
-│  │ **CEO:** Revenue grew 12%...                    ││
-│  └──────────────────────────────────────────────────┘│
-│  ⟐ AAPL  ⟐ Services                                 │
-└──────────────────────────────────────────────────────┘
-```
+The following patterns are observed in practice but are **not required**:
 
-### 10.4 Cross-Document Views
+- **Tag-based filtering:** Extract annotation `type: "tags"` payloads to build filter interfaces.
+- **Sentiment gradients:** Map annotation `type: "sentiment"` scores to color scales.
+- **Entity linking:** Hyperlink annotation `type: "entities"` payload values.
+- **Edge visualization:** Render `type: "edge"` annotations as connector lines or hierarchy trees.
+- **Cross-document aggregation:** Scan annotations across multiple `.smd` files for global views.
 
-A viewer MAY aggregate blocks across multiple `.smd` files:
-
-```
-View: All blocks tagged #action_item across research-*.smd
-
-┌─────────────────────────────────────────────┐
-│ ⚠️ Review MI350 benchmarks          (2d ago)│
-│ ⚠️ Update DCF model for AI capex    (1w ago)│
-│ ⚠️ Check TSMC earnings date        (3d ago)│
-└─────────────────────────────────────────────┘
-```
-
-Only the JSON headers need to be scanned — body parsing is optional for this view.
-
-### 10.5 Viewer Architecture
+### 11.3 Viewer Architecture (Informative)
 
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────────┐
-│  .smd files   │────▶│  Parser (header  │────▶│  Viewer           │
-│  (one or     │     │  + segment list)  │     │                   │
-│  many)       │     │                   │     │  ┌─────────────┐  │
-│              │     │  Header → overlay │     │  │ Tag filter  │  │
-│              │     │  Body   → render  │     │  ├─────────────┤  │
-│              │     │                   │     │  │ Block cards │  │
-│              │     │                   │     │  │ w/ overlays │  │
-│              │     │                   │     │  ├─────────────┤  │
-│              │     │                   │     │  │ Cross-doc   │  │
-│              │     │                   │     │  │ aggregator  │  │
+│  .smd files   │────▶│  Parser          │────▶│  Viewer           │
+│  (one or     │     │  (V, E, A)       │     │                   │
+│  many)       │     │                   │     │  P(view): graph   │
+│              │     │  V = blocks      │     │  → UI projection  │
+│              │     │  E = edges       │     │                   │
+│              │     │  A = annotations │     │  (colors, layout, │
+│              │     │                   │     │   filters, etc.) │
 └──────────────┘     └──────────────────┘     └───────────────────┘
 ```
 
-The viewer is **stateless** per document — all core rendering hints are in the file itself. Cross-document features (clustering, aggregation, tag normalization) MAY introduce external indexing layers.
+A viewer may be **stateless** per document or **stateful** across documents. Cross-document features (clustering, aggregation, tag normalization) MAY introduce external indexing layers.
 
 ---
 
-## 11. Clustering Pipelines
+## 12. Query and Retrieval Model
 
-Because tags are free-form strings in JSON, SMD is naturally amenable to bottom-up structure discovery.
+Queries operate over the document graph `(V, E, A)`, not over raw text. SMD defines a minimal query algebra:
 
-### 10.1 Tag clustering pipeline
+```
+Q :=
+    filter(annotation_type, predicate)
+  | traverse(edge_type, direction?)
+  | match(text_query)
+  | embed_search(vector)
+  | aggregate(metric, group?)
+```
+
+### 12.1 Query Operators
+
+| Operator | Signature | Description |
+|---|---|---|
+| `filter` | `filter(type, pred) → V'` | Select blocks where an annotation of `type` matches `pred`. Example: `filter("sentiment", score > 0.7)` |
+| `traverse` | `traverse(edge_type, dir?) → V'` | Follow typed edges from a set of blocks. `dir` is `out` (default), `in`, or `both`. Example: `traverse("parent-of", out)` |
+| `match` | `match(query) → V'` | Full-text or regex match over block bodies. |
+| `embed_search` | `embed_search(vector) → V'` | Semantic (vector) similarity search over block bodies or annotation payloads. |
+| `aggregate` | `aggregate(metric, group?) → scalar \| map` | Compute `count`, `sum`, `avg`, `min`, `max` over annotation payloads, optionally grouped. |
+
+### 12.2 Composition
+
+Queries compose via piping:
+
+```
+filter("tags", contains("valuation"))
+  → traverse("references", out)
+  → filter("sentiment", score < 0.3)
+```
+
+This reads as: "Find valuation-tagged blocks, follow their references, and return those with negative sentiment."
+
+### 12.3 Retrieval-Augmented Generation (RAG)
+
+SMD is designed for RAG retrieval with graph context:
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  User query      │────▶│  embed_search()  │────▶│  traverse()      │
+│                  │     │  → top-k blocks  │     │  → neighbor      │
+│                  │     │                  │     │    blocks        │
+└──────────────────┘     └──────────────────┘     └────────┬─────────┘
+                                                           │
+                                                           ▼
+┌──────────────────┐     ┌──────────────────────────────────────────┐
+│  LLM response    │◀────│  Build context window from blocks +      │
+│                  │     │  annotations + edges                     │
+└──────────────────┘     └──────────────────────────────────────────┘
+```
+
+The graph structure `(V, E, A)` means retrieval is never limited to isolated text chunks — neighbor blocks, typed edges, and annotations are always available for context assembly.
+
+### 12.4 Implementation Note
+
+This query algebra is **a specification, not a mandated implementation**. Systems MAY implement it via:
+- In-memory graph traversal (small documents)
+- SQL/vector hybrid stores (production scale)
+- Custom query compilers targeting specific backends
+
+---
+
+## 13. Clustering Pipelines
+
+Because annotations carry free-form payloads, SMD is naturally amenable to bottom-up structure discovery.
+
+### 13.1 Tag clustering pipeline
 
 ```mermaid
 flowchart LR
-    A[SMD File] --> B[Extract block_id, tags[]]
+    A[SMD File] --> B[Extract block_id, annotation type=tags]
     B --> C[Compute tag co-occurrence]
     C --> D[Cluster tags]
     D --> E[Suggest normalization]
-    E --> F[Write back to meta.suggested_tags]
+    E --> F[Write back as annotation type=suggested_tags]
 ```
 
-### 10.2 Example output
+### 13.2 Example output
 
 ```
 Input blocks:
@@ -655,43 +983,59 @@ Cluster 2: "ai_capex" → normalize "ai", "capex" → "ai_capex"
 Cluster 3: "competition" → normalize "nvda", "amd", "mi350", "chip" → "competition"
 ```
 
-### 10.3 Feedback loop
+### 13.3 Feedback loop
 
 ```smd
 @block
 {
     "block_id": "b1",
-    "tags": ["dcf", "valuation"],
     "meta": {
-        "suggested_tags": ["dcf"],       ← from clustering
-        "cluster": "valuation_group"     ← from clustering
+        "annotations": [
+            {
+                "type": "tags",
+                "payload": { "values": ["dcf", "valuation"] },
+                "provenance": { "source": "human" }
+            },
+            {
+                "type": "suggested_tags",
+                "payload": { "values": ["dcf"] },
+                "provenance": { "source": "clustering-pipeline", "timestamp": "2026-06-09T00:00:00Z" }
+            },
+            {
+                "type": "cluster",
+                "payload": { "group": "valuation_group" },
+                "provenance": { "source": "clustering-pipeline", "timestamp": "2026-06-09T00:00:00Z" }
+            }
+        ]
     }
 }
 ```
 
-No format changes needed — the pipeline writes into the existing `meta` or `enrichment` fields.
+No format changes needed — the pipeline writes into the existing `meta.annotations` field.
 
 ---
 
-## 12. Comparison with Alternatives
+## 14. Comparison with Alternatives
 
 | Feature | Plain MD | JSON | YAML+MD (Frontmatter) | MDX | SMD |
 |---|---|---|---|---|---|
 | Human-readable body | ✅ | ❌ | ✅ | ✅ | ✅ |
 | Machine-parseable metadata | ❌ | ✅ | ✅ (file-level) | ❌ | ✅ (block-level) |
 | Block-level addressing | ❌ | ❌ | ❌ | ❌ | ✅ (`block_id`) |
-| Block-level tags | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Block-level annotations | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Semantic overlays | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Emergent clustering | ❌ | Partial | ❌ | ❌ | ✅ |
-| Agent enrichment slot | ❌ | ✅ | ❌ | ❌ | ✅ (`enrichment`) |
+| External annotation layer | ❌ | ❌ | ❌ | ❌ | ✅ (annotation model) |
+| Typed document graph | ❌ | ❌ | ❌ | ❌ | ✅ (V, E, A) |
+| Formal query algebra | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Git-friendly | ✅ | ✅ | ✅ | ✅ | ✅ |
 | No proprietary tools | ✅ | ✅ | ✅ | ❌ (JSX) | ✅ |
-| Nesting conventions | ✅ (headings) | ✅ | ❌ | ✅ | ✅ (via `parent_id`, tags) |
+| Structure via edges | ❌ | ❌ | ❌ | ❌ | ✅ (typed edges) |
 | Semantic retrieval at scale | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
-## 13. Error Handling
+## 15. Error Handling
 
 | Condition | Behavior |
 |---|---|
@@ -704,17 +1048,17 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 14. Schema Versioning
+## 16. Schema Versioning
 
 The `schema_version` field on `@document` enables format evolution while maintaining backward compatibility.
 
-### 14.1 Versioning Rules
+### 16.1 Versioning Rules
 
 - **Minor version changes** (e.g., `0.1` → `0.2`) MUST be backward compatible at the parser level. Documents written for an older minor version MUST parse successfully under a newer minor version.
 - **Major version changes** (e.g., `0.x` → `1.0`) MAY introduce breaking changes. Parsers SHOULD reject documents with an unsupported major version.
 - **Pre-1.0** (current): All `0.x` versions are considered experimental. Breaking changes between `0.x` releases SHOULD be documented but are permitted.
 
-### 14.2 Migration
+### 16.2 Migration
 
 When a new schema version introduces changes to the data model, migration tools MAY transform documents by:
 
@@ -723,7 +1067,7 @@ When a new schema version introduces changes to the data model, migration tools 
 3. Updating `schema_version` and `meta.migrated_from`
 4. Writing back as valid SMD
 
-### 14.3 Version Declaration
+### 16.3 Version Declaration
 
 ```smd
 @document
@@ -736,18 +1080,18 @@ When a new schema version introduces changes to the data model, migration tools 
 
 ---
 
-## 15. Future Considerations
+## 17. Future Considerations
 
 | Topic | Notes |
 |---|---|
 | **Inline block references** | A syntax like `[b-001]` or `@ref(b-001)` to reference another block from within body text. |
-| **Schema validation** | Optional JSON Schema per `type` to validate enrichment fields. |
+| **Schema validation** | Optional JSON Schema per annotation `type` to validate annotation payloads. |
 | **Streaming** | Line-delimited SMD for real-time agent output (LLM streaming). |
-| **Encryption per block** | Encrypted enrichment at the block level for sensitive metadata. |
+| **Encryption per block** | Encrypted annotations at the block level for sensitive metadata. |
 | **Versioning** | Git-native diff at block granularity (block_id as anchor). |
 
 ---
 
-## 16. License
+## 18. License
 
 This specification is released under the [MIT License](https://opensource.org/licenses/MIT).
