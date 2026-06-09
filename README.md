@@ -14,65 +14,84 @@
 <div align="center">
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║           S E M A N T I C   M A R K D O W N                  ║
-║                                                              ║
-║            "The Document IS the Database"                    ║
-║                                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║  @document { type:"earnings_transcript", ticker:"A" }        ║
-║  ───                                                         ║
-║    ┌ @block { id:7, type:"qa",                              ┐║
-║    │   enrichments: [{                                       │║
-║    │     topic: "Margin expansion",                          │║
-║    │     highlights: [{                                      │║
-║    │       text:    "50bp improvement driven by pricing",    │║
-║    │       sentiment: 0.6                                    │║
-║    │     }]                                                  │║
-║    │   }]                                                    │║
-║    │  ───                                                    │║
-║    │  **CEO:** Revenue grew 4.4% core, margins expanding.    │║
-║    │                                                        │║
-║    │  **Q:** What drove the beat this quarter?               │║
-║    │  **A:** Strong pharma demand, CAM up 9%.                │║
-║    │                                                        │║
-║    │  Summary of cloud infrastructure spending:              │║
-║    │                                                        │║
-║    │  ```html                                                │║
-║    │  <table>                                                │║
-║    │    <tr><th>AWS</th><td>+18%</td></tr>                   │║
-║    │    <tr><th>Azure</th><td>+21%</td></tr>                 │║
-║    │  </table>                                               │║
-║    │  ```                                                    │║
-║    │                                                        │║
-║    │  ```thought                                             │║
-║    │  Strength broad-based, not just AI capex.               │║
-║    │  Watch capex-to-revenue ratio next quarter.             │║
-║    │  ```                                                    │║
-║    └────────────────────────────────────────────────────────┘║
-║                                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                                                              ║
-║    ONE FILE  ────▶  THREE CONSUMERS                          ║
-║                                                              ║
-║    ┌──────────┐   ┌──────────────┐   ┌──────────────────┐   ║
-║    │  HUMANS  │   │   AGENTS     │   │    VIEWERS       │   ║
-║    │          │   │   (LLMs)     │   │                  │   ║
-║    │  Clean   │   │              │   │  Sentiment       │   ║
-║    │  Markdown│   │  Typed JSON  │   │  colors          │   ║
-║    │  body    │   │  headers     │   │                  │   ║
-║    │          │   │              │   │  Block-type      │   ║
-║    │  Familiar│   │  Tool-call   │   │  filters         │   ║
-║    │  UX      │   │  API         │   │                  │   ║
-║    │          │   │              │   │  Tag             │   ║
-║    │          │   │              │   │  navigation      │   ║
-║    └──────────┘   └──────────────┘   └──────────────────┘   ║
-║                                                              ║
-║   Write once. Structure everywhere. No ETL required.         ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                     S E M A N T I C   M A R K D O W N                      ║
+║                                                                            ║
+║                       "The Document IS the Database"                       ║
+║                                                                            ║
+║                                                                            ║
+║                                                                            ║
+║                            W R I T E   O N C E                             ║
+║                    C O N S U M E   E V E R Y W H E R E                     ║
+║                                                                            ║
+║              H U M A N S   •   A G E N T S   •   A P P S                   ║
+║                                                                            ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║      ┌─────────────┐   ┌─────────────┐   ┌─────────────────┐               ║
+║      │   HUMANS    │   │   AGENTS    │   │      APPS       │               ║
+║      │             │   │             │   │                 │               ║
+║      │ Readable    │   │ Query by    │   │ Filter by       │               ║
+║      │ Markdown    │   │ tags, type, │   │ tags, topics,   │               ║
+║      │             │   │ segment     │   │ sentiment       │               ║
+║      │ Familiar    │   │ Structured  │   │ Rich views &    │               ║
+║      │ Authoring   │   │ Metadata    │   │ navigation      │               ║
+║      └─────────────┘   └─────────────┘   └─────────────────┘               ║
+║                                                                            ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║  @document                                                                 ║
+║  {                                                                         ║
+║    type: "research_note",                                                  ║
+║    ticker: "A",                                                            ║
+║    sectors: ["Life Sciences", "Diagnostics"]                               ║
+║  }                                                                         ║
+║                                                                            ║
+║  ---                                                                       ║
+║                                                                            ║
+║  @block                                                                    ║
+║  {                                                                         ║
+║    id: 1,                                                                  ║
+║    type: "investment_thesis",                                              ║
+║    topic: "Margin Expansion",                                              ║
+║    tags: ["pricing", "margins"],                                           ║
+║    sentiment: 0.72                                                         ║
+║  }                                                                         ║
+║                                                                            ║
+║  Agilent continues to benefit from pricing power and                       ║
+║  operating leverage. Management highlighted a 50bp margin                  ║
+║  improvement driven by pricing actions and manufacturing                   ║
+║  efficiencies.                                                             ║
+║                                                                            ║
+║  ---                                                                       ║
+║                                                                            ║
+║  @block                                                                    ║
+║  {                                                                         ║
+║    id: 2,                                                                  ║
+║    type: "segment_analysis",                                               ║
+║    segment: "Life Sciences & Diagnostics",                                 ║
+║    tags: ["pharma", "growth"],                                             ║
+║    highlights: ["Biologics demand remains strong"]                         ║
+║  }                                                                         ║
+║                                                                            ║
+║  Revenue contribution by end market:                                       ║
+║                                                                            ║
+║  ```html                                                                   ║
+║  <table>                                                                   ║
+║    <tr><th>End Market</th><th>Growth</th></tr>                             ║
+║    <tr><td>Pharma</td><td>+9%</td></tr>                                    ║
+║    <tr><td>Diagnostics</td><td>+6%</td></tr>                               ║
+║  </table>                                                                  ║
+║  ```                                                                       ║
+║                                                                            ║
+╠════════════════════════════════════════════════════════════════════════════╣
+║                                                                            ║
+║      One file. Human-readable. Machine-queryable. App-native.              ║
+║                                                                            ║
+║                   No ETL. No sidecar metadata.                             ║
+║                                                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
 ```
 
 </div>
