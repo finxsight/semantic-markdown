@@ -313,7 +313,7 @@ Parses to: `[{type: "markdown", …}, {type: "thought", …}, {type: "markdown",
 - Header and body are separated by `---`
 - Block bodies contain ordered typed segments (markdown + fenced blocks)
 - Metadata is always structured JSON
-- No implicit structure exists outside the format
+- No required structural model exists outside the format
 - Blocks are independently addressable — they can be read, enriched, and rewritten without affecting other blocks
 - The block is the atomic unit of meaning, storage, retrieval, and enrichment
 

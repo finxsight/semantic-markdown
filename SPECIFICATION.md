@@ -25,8 +25,9 @@
 - [11. Clustering Pipelines](#11-clustering-pipelines)
 - [12. Comparison with Alternatives](#12-comparison-with-alternatives)
 - [13. Error Handling](#13-error-handling)
-- [14. Future Considerations](#14-future-considerations)
-- [15. License](#15-license)
+- [14. Schema Versioning](#14-schema-versioning)
+- [15. Future Considerations](#15-future-considerations)
+- [16. License](#16-license)
 
 ---
 
@@ -47,7 +48,7 @@ This specification uses the key words **MUST**, **SHOULD**, and **MAY** as defin
 | `document_id` on @document | SHOULD | Document |
 | `schema_version` on @document | SHOULD | Document |
 | `type` on @block | SHOULD | Block |
-| Sentiment interpreted visually | MAY | Viewer |
+| Sentiment interpreted visually | SHOULD | Viewer |
 | `parent_id` used for hierarchy | MAY | Application |
 | Cross-document aggregation | MAY | Viewer / Indexer |
 | Clustering pipelines | MAY | External tools |
@@ -60,13 +61,21 @@ SMD treats documents as structured data artifacts, not passive text containers.
 
 1. **Minimal primitives.** Two constructs (`@document`, `@block`), one separator (`---`). Everything else is convention.
 
-2. **No built-in hierarchy.** Nesting, trees, graphs, timelines — all expressed through conventional use of `block_id`, `parent_id`, `tags`, and `type`. The format defines the alphabet; users define the grammar.
+2. **No enforced hierarchy model.** Nesting, trees, graphs, timelines — all expressed through conventional use of `block_id`, `tags`, and `type`. Hierarchy primitives exist (`parent_id`) but the format does not mandate a specific structure. The format defines the alphabet; users define the grammar.
 
 3. **Conventions over protocols.** The format does not enforce a nesting schema. An ecosystem of conventions can emerge (e.g., `block_level=N` tag, path-based IDs, parent pointers).
 
 4. **Bottom-up discoverable.** Tags are free-form. Structure can emerge from clustering, not just from author intent.
 
 5. **Triple-consumable.** Designed for humans (readable Markdown), agents (parseable JSON headers), and viewers (renderable semantic overlays).
+
+6. **Three-layer architecture.** SMD is defined across three explicit layers:
+
+   - **Syntax layer** — `@document`, `@block`, `---` separator, EBNF grammar. What a valid `.smd` file looks like.
+   - **Data model layer** — JSON schemas for documents and blocks (`block_id`, `type`, `tags`, `sentiment`, `enrichment`, `meta`). What structured information each entity carries.
+   - **Interaction layer** — Agent enrichment, viewer semantics, clustering pipelines, cross-document aggregation. How systems read, write, and evolve SMD documents.
+
+   These layers are separable: a parser can validate syntax without understanding data model semantics. An agent can enrich blocks without changing rendering. A viewer can render without running clustering pipelines.
 
 ---
 
@@ -166,7 +175,7 @@ An SMD file is parsed by scanning for lines that match `^@document` or `^@block`
 
 ### 2.2 Header–body separator
 
-The **first** occurrence of `^---$` (three dashes on their own line) after the `@document`/`@block` line ends the JSON header and begins the body.
+The **first** occurrence of `^---$` (three dashes on their own line) after the `@document`/`@block` line ends the JSON header and begins the body. Only a `---` line that appears in the header-body boundary context is treated as a separator — `---` lines within body content (e.g., Markdown horizontal rules, code blocks) are part of the body and have no structural significance.
 
 ```
 @block
@@ -211,7 +220,7 @@ The JSON header MUST be a valid JSON object as defined by [RFC 8259](https://too
 
 ## 5. Body Content Parsing
 
-The body parser recognizes **triple-backtick fenced sections** with an optional content type label. The body is split into an ordered list of typed segments.
+The body parser recognizes **triple-backtick fenced sections** with an optional content type label. The body is split into an ordered list of typed segments. Body parsing MUST operate on raw text after the separator, not on a rendered Markdown AST.
 
 ### 5.1 Markdown segments
 
@@ -295,7 +304,9 @@ function parse_smd(text: string): Entity[] {
 ### 7.1 `block_id`
 
 - **REQUIRED** on every `@block`.
-- MUST be unique within the containing document.- Global uniqueness is achieved via the `(document_id, block_id)` tuple.- RECOMMENDED conventions: UUIDv7 (time-sortable), slugs (`qa-0042`, `day-2026-01-15`), or path-like identifiers (`section/methodology/wacc`).
+- MUST be unique within the containing document.
+- Global uniqueness is achieved via the `(document_id, block_id)` tuple. When blocks are moved across documents, the `document_id` MUST be updated to reflect the new owning document.
+- RECOMMENDED conventions: UUIDv7 (time-sortable), slugs (`qa-0042`, `day-2026-01-15`), or path-like identifiers (`section/methodology/wacc`).
 
 ### 7.2 `document_id`
 
@@ -693,7 +704,39 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 14. Future Considerations
+## 14. Schema Versioning
+
+The `schema_version` field on `@document` enables format evolution while maintaining backward compatibility.
+
+### 14.1 Versioning Rules
+
+- **Minor version changes** (e.g., `0.1` → `0.2`) MUST be backward compatible at the parser level. Documents written for an older minor version MUST parse successfully under a newer minor version.
+- **Major version changes** (e.g., `0.x` → `1.0`) MAY introduce breaking changes. Parsers SHOULD reject documents with an unsupported major version.
+- **Pre-1.0** (current): All `0.x` versions are considered experimental. Breaking changes between `0.x` releases SHOULD be documented but are permitted.
+
+### 14.2 Migration
+
+When a new schema version introduces changes to the data model, migration tools MAY transform documents by:
+
+1. Parsing the document under the old schema
+2. Mapping fields to the new schema
+3. Updating `schema_version` and `meta.migrated_from`
+4. Writing back as valid SMD
+
+### 14.3 Version Declaration
+
+```smd
+@document
+{
+    "document_id": "aapl-q3-2026",
+    "schema_version": "0.0",
+    ...
+}
+```
+
+---
+
+## 15. Future Considerations
 
 | Topic | Notes |
 |---|---|
@@ -705,6 +748,6 @@ No format changes needed — the pipeline writes into the existing `meta` or `en
 
 ---
 
-## 15. License
+## 16. License
 
 This specification is released under the [MIT License](https://opensource.org/licenses/MIT).
