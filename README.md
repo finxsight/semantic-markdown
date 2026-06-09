@@ -5,7 +5,7 @@
 [![Spec v0.2](https://img.shields.io/badge/spec-v0.2-3a6ea5?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
 [![Status: Draft](https://img.shields.io/badge/status-draft-ff6b35?style=for-the-badge&labelColor=1a1a2e)](SPECIFICATION.md)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e)](.)
-[![License: MIT](https://img.shields.io/badge/license-MIT-97ca00?style=for-the-badge&labelColor=1a1a2e)](.)
+[![License](https://img.shields.io/badge/license-Apache_2.0-d22128?style=for-the-badge&labelColor=1a1a2e)](LICENSE)
 
 </div>
 
@@ -22,25 +22,47 @@
 ║                                                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
-║  @document { type:"transcript", ticker:"A", schema:"0.2" }  ║
-║  ───                                                        ║
-║    ┌ @block { id:0, type:"business_update" } ─┐             ║
-║    │  **CEO:** Revenue grew 4.4% core...       │             ║
-║    │  Margins expanded, EPS of $1.36...        │             ║
-║    └───────────────────────────────────────────┘             ║
-║    ┌ @block { id:1, type:"qa",               ─┐             ║
-║    │   enrichments: [{                        │             ║
-║    │     topic:   "Guidance outlook",         │             ║
-║    │     highlights: [{sentiment:0.74},...]   │             ║
-║    │   }]                                     │             ║
-║    │  ───                                     │             ║
-║    │  **Q:** What drove the beat?             │             ║
-║    │  **A:** Strong pharma, CAM up 9%...      │             ║
-║    └───────────────────────────────────────────┘             ║
-║    ┌ @block { id:2, type:"operator_comment" } ─┐            ║
-║    │  **Operator:** Next question from...       │            ║
-║    └───────────────────────────────────────────┘             ║
-║              . . .  more blocks  . . .                       ║
+║  @document { type:"earnings_transcript",                     ║
+║              ticker:"A", schema:"0.2" }                      ║
+║  ───                                                         ║
+║    ┌ @block { id:2, type:"business_update" } ─┐              ║
+║    │  **CEO:** Revenue grew 4.4% core,        │              ║
+║    │  margins expanded, EPS of $1.36.         │              ║
+║    └──────────────────────────────────────────┘              ║
+║                                                              ║
+║    ┌ @block { id:7, type:"qa",               ─┐              ║
+║    │   enrichments: [{                         │              ║
+║    │     topic: "Margins & leverage",          │              ║
+║    │     highlights: [{                        │              ║
+║    │       text:   "50bp improvement...",      │              ║
+║    │       sentiment: 0.6                      │              ║
+║    │     }]                                    │              ║
+║    │   }]                                      │              ║
+║    │  ───                                      │              ║
+║    │  **Q:** What drove margins in Q1?         │              ║
+║    │  **A:** We expect 50bp improvement,       │              ║
+║    │  driven by pricing, volume & Ignite.      │              ║
+║    └──────────────────────────────────────────┘              ║
+║                                                              ║
+║    ┌ @block { id:42, type:"research_note" } ───┐             ║
+║    │  ## Key Findings                           │             ║
+║    │                                            │             ║
+║    │  Our analysis shows Infra spending          │             ║
+║    │  accelerating across all three clouds.     │             ║
+║    │                                            │             ║
+║    │  ```html                                   │             ║
+║    │  <table>                                   │             ║
+║    │    <tr><th>AWS</th><td>+18%</td></tr>      │             ║
+║    │    <tr><th>Azure</th><td>+21%</td></tr>    │             ║
+║    │    <tr><th>GCP</th><td>+26%</td></tr>      │             ║
+║    │  </table>                                  │             ║
+║    │  ```                                       │             ║
+║    │                                            │             ║
+║    │  ```thought                                │             ║
+║    │  Strength broad-based, not just AI.        │             ║
+║    │  Watch capex-to-revenue ratio next qtr.    │             ║
+║    │  ```                                       │             ║
+║    └────────────────────────────────────────────┘             ║
 ║                                                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
@@ -387,4 +409,4 @@ The viewer loads `.smd` files from `examples/` and renders them with sentiment c
 
 ## License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE) for full text.
