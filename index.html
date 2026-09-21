@@ -377,101 +377,144 @@ function annotateBlockHighlights(block, threshold = 0.55) {
   }
 }
 
-// ---- Minimal SMD Parser in JS ----
-function parseSMD(text) {
-  const entityStart = /^(?=@(?:document|block))/m;
-  const separator = /\n---\n/;
-  const fencedBlock = /```(\w*)\n([\s\S]*?)```/g;
+// ---- SMD parser (aligned with Python reference: CRLF, brace JSON, optional ---) ----
+function extractJsonObject(text) {
+  const leading = text.length - text.trimStart().length;
+  const stripped = text.trimStart();
+  if (!stripped.startsWith('{')) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const raw = stripped.slice(0, i + 1);
+        return { raw, end: leading + i + 1 };
+      }
+    }
+  }
+  return null;
+}
 
-  const rawEntities = text.split(entityStart).filter(s => s.trim());
+function parseBodySegments(bodyText) {
+  const fencedBlock = /```(\w*)\n([\s\S]*?)```/g;
+  const segments = [];
+  let lastEnd = 0;
+  let match;
+  while ((match = fencedBlock.exec(bodyText)) !== null) {
+    if (match.index > lastEnd) {
+      const t = bodyText.substring(lastEnd, match.index).trim();
+      if (t) segments.push({ type: 'markdown', content: bodyText.substring(lastEnd, match.index) });
+    }
+    segments.push({ type: match[1] || 'unknown', content: match[2] });
+    lastEnd = match.index + match[0].length;
+  }
+  if (lastEnd < bodyText.length) {
+    const t = bodyText.substring(lastEnd).trim();
+    if (t) segments.push({ type: 'markdown', content: bodyText.substring(lastEnd) });
+  }
+  return segments;
+}
+
+function makeBlockRecord(header, headerText, bodyText) {
+  const segments = parseBodySegments(bodyText);
+  const block = {
+    block_id: (header._id != null ? String(header._id)
+      : header.block_id != null ? String(header.block_id)
+      : header.id != null ? String(header.id) : ''),
+    header,
+    raw_header: headerText,
+    body_text: bodyText,
+    segments,
+    get tags() { return this.header.tags || []; },
+    get type() {
+      return this.header.section_type || this.header.type || this.header.block_type;
+    },
+    get sentiment() {
+      const s = this.header.sentiment;
+      if (s === undefined || s === null) return null;
+      if (typeof s === 'number') return [{ excerpt: 'block-level', score: s }];
+      if (Array.isArray(s)) return s;
+      return null;
+    },
+    get highlights() {
+      const enr = this.header.enrichment || this.header.enrichments;
+      if (!enr) return [];
+      const items = Array.isArray(enr) ? enr : [enr];
+      const raw = [];
+      for (const item of items) {
+        if (item && Array.isArray(item.highlights)) {
+          for (const h of item.highlights) {
+            const obj = typeof h === 'string' ? { text: h } : { ...h };
+            if (item.topic) obj.topic = item.topic;
+            raw.push(obj);
+          }
+        }
+      }
+      return raw;
+    },
+    get enrichment() {
+      return this.header.enrichment || this.header.enrichments || {};
+    },
+    get key_takeaways() {
+      const enr = this.header.enrichment || this.header.enrichments;
+      if (!enr) return [];
+      const items = Array.isArray(enr) ? enr : [enr];
+      const results = [];
+      for (const item of items) {
+        if (item.key_takeaways) results.push(...item.key_takeaways);
+        if (item.key_takeaway) results.push(item.key_takeaway);
+      }
+      return results;
+    }
+  };
+  annotateBlockHighlights(block);
+  return block;
+}
+
+function parseSMD(text) {
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const blocks = [];
   let docHeader = null;
+  let rest = text;
 
-  for (const raw of rawEntities) {
-    const isDoc = raw.trimStart().startsWith('@document');
-    const isBlock = raw.trimStart().startsWith('@block');
-    if (!isDoc && !isBlock) continue;
-
-    const sepMatch = separator.exec(raw);
-    if (!sepMatch) continue;
-
-    const firstNewline = raw.indexOf('\n');
-    let headerText = raw.substring(firstNewline, sepMatch.index).trim();
-    let header;
-    try { header = JSON.parse(headerText); }
-    catch(e) { continue; }
-
-    const bodyText = raw.substring(sepMatch.index + sepMatch[0].length).trim();
-
-    if (isDoc) {
-      docHeader = header;
+  const docMatch = /^@document\s*$/m.exec(text);
+  if (docMatch) {
+    const afterDoc = text.slice(docMatch.index + docMatch[0].length);
+    const extracted = extractJsonObject(afterDoc);
+    if (extracted) {
+      try { docHeader = JSON.parse(extracted.raw); } catch (e) { /* ignore */ }
+      rest = afterDoc.slice(extracted.end);
     } else {
-      // Parse body segments
-      const segments = [];
-      let lastEnd = 0;
-      let match;
-      while ((match = fencedBlock.exec(bodyText)) !== null) {
-        if (match.index > lastEnd) {
-          const text = bodyText.substring(lastEnd, match.index).trim();
-          if (text) segments.push({ type: 'markdown', content: text });
-        }
-        segments.push({ type: match[1] || 'unknown', content: match[2] });
-        lastEnd = match.index + match[0].length;
-      }
-      if (lastEnd < bodyText.length) {
-        const text = bodyText.substring(lastEnd).trim();
-        if (text) segments.push({ type: 'markdown', content: text });
-      }
-
-      blocks.push({
-        block_id: header.block_id != null ? String(header.block_id) : '',
-        header,
-        raw_header: headerText,
-        body_text: bodyText,
-        segments,
-        get tags() { return this.header.tags || []; },
-        get type() { return this.header.type || this.header.block_type; },
-        get sentiment() {
-          const s = this.header.sentiment;
-          if (s === undefined || s === null) return null;
-          if (typeof s === 'number') return [{ excerpt: 'block-level', score: s }];
-          if (Array.isArray(s)) return s;
-          return null;
-        },
-        get highlights() {
-          const enr = this.header.enrichment || this.header.enrichments;
-          if (!enr) return [];
-          // enrichments can be an object {highlights:[...]} or an array [{highlights:[...]}, ...]
-          const items = Array.isArray(enr) ? enr : [enr];
-          const raw = [];
-          for (const item of items) {
-            if (item && Array.isArray(item.highlights)) {
-              for (const h of item.highlights) {
-                const obj = typeof h === 'string' ? { text: h } : { ...h };
-                if (item.topic) obj.topic = item.topic;
-                raw.push(obj);
-              }
-            }
-          }
-          return raw;
-        },
-        get enrichment() {
-          return this.header.enrichment || this.header.enrichments || {};
-        },
-        get key_takeaways() {
-          const enr = this.header.enrichment || this.header.enrichments;
-          if (!enr) return [];
-          const items = Array.isArray(enr) ? enr : [enr];
-          const results = [];
-          for (const item of items) {
-            if (item.key_takeaways) results.push(...item.key_takeaways);
-            if (item.key_takeaway) results.push(item.key_takeaway);
-          }
-          return results;
-        }
-      });
-      annotateBlockHighlights(blocks[blocks.length - 1]);
+      rest = afterDoc;
     }
+    const nextBlock = /^@block\s*$/m.exec(rest);
+    if (nextBlock) rest = rest.slice(nextBlock.index);
+    else rest = '';
+  }
+
+  while (rest.length) {
+    const blockMatch = /^@block\s*$/m.exec(rest);
+    if (!blockMatch) break;
+    const afterDirective = rest.slice(blockMatch.index + blockMatch[0].length);
+    const extracted = extractJsonObject(afterDirective);
+    if (!extracted) break;
+    let header;
+    try { header = JSON.parse(extracted.raw); } catch (e) { break; }
+    let afterJson = afterDirective.slice(extracted.end);
+    const sepMatch = afterJson.match(/^\s*---\s*\n?/);
+    if (sepMatch) afterJson = afterJson.slice(sepMatch[0].length);
+    const nextBlock = /^@block\s*$/m.exec(afterJson);
+    const bodyText = (nextBlock ? afterJson.slice(0, nextBlock.index) : afterJson).trim();
+    rest = nextBlock ? afterJson.slice(nextBlock.index) : '';
+    blocks.push(makeBlockRecord(header, extracted.raw, bodyText));
   }
 
   return { docHeader, blocks };
@@ -770,16 +813,16 @@ function renderAll(data, rawText) {
       if (docHeader.fiscal_period || docHeader.year) parts.push('Earnings Call');
       title = parts.join(' ');
     } else if (docHeader.ticker) {
-      title = docHeader.ticker + (docHeader.type ? ' ' + docHeader.type : '');
-    } else if (docHeader.type) {
-      title = docHeader.type.replace(/_/g, ' ');
+      title = docHeader.ticker + (docHeader.document_type ? ' ' + docHeader.document_type : '');
+    } else if (docHeader.document_type) {
+      title = docHeader.document_type.replace(/_/g, ' ');
     }
   }
   document.getElementById('doc-title').textContent = title;
 
   const metaParts = [];
   if (blocks.length) metaParts.push(`${blocks.length} blocks`);
-  if (docHeader && docHeader.type) metaParts.push(`type: ${docHeader.type}`);
+  if (docHeader && docHeader.document_type) metaParts.push(`document_type: ${docHeader.document_type}`);
   document.getElementById('doc-meta').textContent = metaParts.join(' · ');
 
   // 1. Capture tree: flatten each block header into {path, value, parent} leaves

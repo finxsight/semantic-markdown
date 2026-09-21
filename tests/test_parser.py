@@ -46,6 +46,8 @@ Some content
     doc = parse_smd(text)
     assert len(doc.documents) == 1
     assert doc.documents[0].header["document_id"] == "doc-001"
+    assert "Some content" in doc.preamble
+    assert len(doc.blocks) == 0
 
 
 def test_block_and_document():
@@ -138,16 +140,26 @@ def test_empty_body():
 
 def test_missing_separator():
     text = """@block
-{
-    "block_id": "b-001"
-}
-no separator here
+not json at all
 """
     try:
         parse_smd(text)
         assert False, "Expected ParseError"
     except ParseError as e:
-        assert "separator" in str(e)
+        assert "JSON" in str(e) or "header" in str(e)
+
+
+def test_block_without_separator():
+    text = """@block
+{
+    "_id": "b-001"
+}
+Hello without --- separator
+"""
+    doc = parse_smd(text)
+    assert len(doc.blocks) == 1
+    assert doc.blocks[0].block_id == "b-001"
+    assert "Hello" in doc.blocks[0].body_text
 
 
 def test_malformed_json():
@@ -345,28 +357,18 @@ def test_no_blocks():
 # Real file parsing
 # ---------------------------------------------------------------------------
 
-def test_parse_example_transcript():
+def test_parse_agilent_transcript_example():
     examples_dir = Path(__file__).resolve().parent.parent / "examples"
-    transcript_file = examples_dir / "transcript.smd"
-    if not transcript_file.exists():
-        return  # skip if examples not present
+    path = examples_dir / "Agilent_Transcript_1Q_2026.smd"
     from semantic_markdown import parse_file
-    doc = parse_file(transcript_file)
+
+    doc = parse_file(path)
+    assert doc.header.get("document_type") == "earnings_transcript"
     assert len(doc.blocks) == 33
     assert doc.blocks[0].block_id == "0"
-    assert doc.blocks[0].header.get("block_type") == "operator_comment"
-    assert doc.blocks[1].block_id == "1"
-    assert doc.blocks[1].header.get("block_type") == "business_update"
-    assert doc.blocks[7].block_id == "7"
-    assert doc.blocks[7].header.get("block_type") == "qa"
-    assert doc.blocks[7].header.get("qa_thread_id") == "0"
-
-    # Block 9 has enrichments
-    assert "enrichments" in doc.blocks[9].header
-    enr = doc.blocks[9].header["enrichments"]
-    assert enr[0]["type"] == "highlight"
-    assert enr[0]["topic"] == "Faster growth in 2H"
-    assert len(enr[0]["highlights"]) == 3
+    assert doc.blocks[0].header.get("section_type") == "operator_comment"
+    assert doc.blocks[7].header.get("section_type") == "qa"
+    assert "enrichments" not in doc.blocks[7].header
 
 
 def test_parse_example_notebook():
@@ -425,6 +427,7 @@ if __name__ == "__main__":
         test_fenced_content,
         test_empty_body,
         test_missing_separator,
+        test_block_without_separator,
         test_malformed_json,
         test_duplicate_block_id,
         test_filter_by_tag,
@@ -433,7 +436,7 @@ if __name__ == "__main__":
         test_tag_co_occurrence,
         test_blocks_in_document_header,
         test_no_blocks,
-        test_parse_example_transcript,
+        test_parse_agilent_transcript_example,
         test_parse_example_notebook,
         test_json_serialization,
     ]

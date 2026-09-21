@@ -162,10 +162,17 @@ class SMDIndexer:
 
     def _index_doc(self, doc: SimpleNamespace) -> int:
         """Insert a parsed document's blocks into the index."""
-        doc_header = doc.entities[0].header if doc.entities else {}
-        doc_id = doc_header.get("document_id") or doc_header.get("ticker", "?")
-        doc_type = doc_header.get("type", "")
-        doc_date = doc_header.get("created", "")
+        doc_header = getattr(doc, "header", None) or (
+            doc.entities[0].header if doc.entities else {}
+        )
+        doc_id = (
+            doc_header.get("document_id")
+            or doc_header.get("ticker")
+            or doc_header.get("document_type")
+            or "?"
+        )
+        doc_type = doc_header.get("document_type") or doc_header.get("type", "")
+        doc_date = doc_header.get("date") or doc_header.get("created", "")
 
         count = 0
         for block in doc.blocks:

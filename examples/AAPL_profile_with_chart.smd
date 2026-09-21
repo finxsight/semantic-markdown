@@ -1,17 +1,14 @@
 @document
 {
-    "schema_version": "0.2",
-    "type": "company_profile",
     "ticker": "AAPL",
     "company_name": "Apple Inc",
-    "created": "2026-06-08T00:00:00Z"
+    "created": "2026-06-08T00:00:00Z",
+    "document_type": "company_profile"
 }
-    
 ---
-
 @block
 {
-    "block_id": 0    
+    "_id": 0
 }
 ---
 ### Company Profile
@@ -33,10 +30,9 @@
 ```
 
 Apple Inc. is a multinational technology company headquartered in Cupertino, California. Founded in 1976, it designs and sells consumer electronics, computer software, and online services. The company operates a massive, interconnected software and services ecosystem centered on flagship hardware like the iPhone.
-
 @block
 {
-    "block_id": 1
+    "_id": 1
 }
 ---
 ### Price History 
@@ -74,10 +70,9 @@ Apple Inc. is a multinational technology company headquartered in Cupertino, Cal
 </div>
 <!-- TradingView Widget END -->
 ```
-
 @block
 {
-    "block_id": 2
+    "_id": 2
 }
 ---
 ### Financial Summary
